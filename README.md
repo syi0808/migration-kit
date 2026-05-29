@@ -58,50 +58,6 @@ migrationRunner.run();
 
 ===
 
-// Interfaces
-
-interface MigrationRunnerOptions {
-    name: string; // migration title
-    from: string; // maybe user's current version
-    to: string; // target version
-    docs?: string; // docs url
-    configPath?: string[];
-    environment?: EnvironmentRequirementCheck[];
-    peerDependencies?: PeerDependency[];
-    configChanges?: ConfigChange[];
-    apiChanges?: ApiChange[];
-}
-
-type EnvironmentAvaliableStatus = boolean;
-
-type EnvironmentRequirementCheck = () => EnvironmentAvailableStatus;
-
-interface PeerDependency {
-    dependency: string;
-    requiredVersion: string;
-}
-
-interface ConfigChange {
-    title: string;
-    description?: string;
-    level: "error" | "warning";
-    shouldBlock?: (configPath: string) => false | { reason: string };
-    transform?: Transformer;
-}
-
-interface ApiChange {
-    title: string;
-    description?: string;
-    files: string[];
-    shouldBlock?: (configPath: string) => false | { reason: string };
-    transform?: Transformer;
-}
-
-type TransformedCode = string;
-type Transformer = (filePath: string) => TransformedCode;
-
-===
-
 # CLI preview
 
 $ npx @vitest/codemod-v3-to-v4
