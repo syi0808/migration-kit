@@ -7,64 +7,68 @@ import { createLogUpdate } from "log-update";
 
 const logUpdate = createLogUpdate(process.stdout);
 
-async function createMigrationRunner(options: MigrationRunnerOptions): Promise<void> {
-  const {
-    name,
-    from,
-    to,
-    docs,
-    configPath,
-    environment,
-    peerDependencies,
-    apiChanges,
-    configChanges,
-  } = options;
+function createMigrationRunner(options: MigrationRunnerOptions): { run: () => Promise<void> } {
+  const run = async () => {
+    const {
+      name,
+      from,
+      to,
+      docs,
+      configPath,
+      environment,
+      peerDependencies,
+      apiChanges,
+      configChanges,
+    } = options;
 
-  logUpdate.persist(`${name} (${from} -> ${to})`);
+    logUpdate.persist(`${name} (${from} -> ${to})`);
 
-  if (docs) {
-    logUpdate.persist(`Docs: ${docs}`);
-  }
-
-  if (environment && environment.length > 0) {
-    logUpdate.persist("Environment");
-
-    try {
-      await environmentTask(logUpdate, environment);
-    } catch {}
-  }
-
-  if (peerDependencies && peerDependencies.length > 0) {
-    logUpdate.persist("Dependencies");
-
-    try {
-      await dependenciesTask(logUpdate, peerDependencies);
-    } catch {}
-  }
-
-  if (configChanges && configChanges.length > 0) {
-    logUpdate.persist("Config Changes");
-
-    const findedConfigPath = configPath?.at(0); // TODO: Find config file with configPath
-
-    if (findedConfigPath) {
-      try {
-        await configChangesTask(logUpdate, configChanges, findedConfigPath);
-      } catch {}
-    } else {
-      logUpdate.persist("Config file not founded.");
+    if (docs) {
+      logUpdate.persist(`Docs: ${docs}`);
     }
-  }
 
-  if (apiChanges && apiChanges.length < 0) {
-    logUpdate.persist("API Changes");
+    if (environment && environment.length > 0) {
+      logUpdate.persist("Environment");
 
-    try {
-      await apiChangesTask(logUpdate, apiChanges);
-    } catch {}
-  }
+      try {
+        await environmentTask(logUpdate, environment);
+      } catch {}
+    }
 
-  logUpdate.persist(`${name} Completed!`);
+    if (peerDependencies && peerDependencies.length > 0) {
+      logUpdate.persist("Dependencies");
+
+      try {
+        await dependenciesTask(logUpdate, peerDependencies);
+      } catch {}
+    }
+
+    if (configChanges && configChanges.length > 0) {
+      logUpdate.persist("Config Changes");
+
+      const findedConfigPath = configPath?.at(0); // TODO: Find config file with configPath
+
+      if (findedConfigPath) {
+        try {
+          await configChangesTask(logUpdate, configChanges, findedConfigPath);
+        } catch {}
+      } else {
+        logUpdate.persist("Config file not founded.");
+      }
+    }
+
+    if (apiChanges && apiChanges.length < 0) {
+      logUpdate.persist("API Changes");
+
+      try {
+        await apiChangesTask(logUpdate, apiChanges);
+      } catch {}
+    }
+
+    logUpdate.persist(`${name} Completed!`);
+  };
+
+  return { run };
 }
 
 export { createMigrationRunner };
