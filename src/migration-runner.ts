@@ -1,1 +1,3 @@
-export {};
+function createMigrationRunner() {}
+
+export { createMigrationRunner };
