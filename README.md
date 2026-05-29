@@ -95,11 +95,13 @@ Environment Check (if requirement is not met, just warn)
 -> Dependencies Check (if required thing not correct, exit the process)
 -> Config Changes Check
     -> Run transform fn
+        -> Prompt user for confirm continue
         -> Find config file
         -> Run transformer
     -> Run block fn (if returned true, Pause CLI and notify the user)
 -> API Changes Check
     -> Run transform fn
+        -> Prompt user for confirm continue
         -> Scan files
         -> Run transformer (with counting)
     -> Run block fn
