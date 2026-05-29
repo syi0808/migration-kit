@@ -1,0 +1,3 @@
+function deno() {}
+
+export { deno };

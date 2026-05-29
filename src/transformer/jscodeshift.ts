@@ -1,0 +1,3 @@
+function jscodeshift() {}
+
+export { jscodeshift };
