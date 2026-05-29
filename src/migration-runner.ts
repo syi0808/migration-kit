@@ -21,51 +21,47 @@ function createMigrationRunner(options: MigrationRunnerOptions): { run: () => Pr
       configChanges,
     } = options;
 
-    logUpdate.persist(`${name} (${from} -> ${to})`);
+    try {
+      logUpdate.persist(`${name} (${from} -> ${to})`);
 
-    if (docs) {
-      logUpdate.persist(`Docs: ${docs}`);
-    }
-
-    if (environment && environment.length > 0) {
-      logUpdate.persist("Environment");
-
-      try {
-        await environmentTask(logUpdate, environment);
-      } catch {}
-    }
-
-    if (peerDependencies && peerDependencies.length > 0) {
-      logUpdate.persist("Dependencies");
-
-      try {
-        await dependenciesTask(logUpdate, peerDependencies);
-      } catch {}
-    }
-
-    if (configChanges && configChanges.length > 0) {
-      logUpdate.persist("Config Changes");
-
-      const findedConfigPath = configPath?.at(0); // TODO: Find config file with configPath
-
-      if (findedConfigPath) {
-        try {
-          await configChangesTask(logUpdate, configChanges, findedConfigPath);
-        } catch {}
-      } else {
-        logUpdate.persist("Config file not founded.");
+      if (docs) {
+        logUpdate.persist(`Docs: ${docs}`);
       }
-    }
 
-    if (apiChanges && apiChanges.length < 0) {
-      logUpdate.persist("API Changes");
+      if (environment && environment.length > 0) {
+        logUpdate.persist("Environment");
 
-      try {
+        await environmentTask(logUpdate, environment);
+      }
+
+      if (peerDependencies && peerDependencies.length > 0) {
+        logUpdate.persist("Dependencies");
+
+        await dependenciesTask(logUpdate, peerDependencies);
+      }
+
+      if (configChanges && configChanges.length > 0) {
+        logUpdate.persist("Config Changes");
+
+        const findedConfigPath = configPath?.at(0); // TODO: Find config file with configPath
+
+        if (findedConfigPath) {
+          await configChangesTask(logUpdate, configChanges, findedConfigPath);
+        } else {
+          logUpdate.persist("Config file not founded.");
+        }
+      }
+
+      if (apiChanges && apiChanges.length < 0) {
+        logUpdate.persist("API Changes");
+
         await apiChangesTask(logUpdate, apiChanges);
-      } catch {}
-    }
+      }
 
-    logUpdate.persist(`${name} Completed!`);
+      logUpdate.persist(`${name} Completed!`);
+    } catch {
+      logUpdate.persist(`${name} Failed!`);
+    }
   };
 
   return { run };

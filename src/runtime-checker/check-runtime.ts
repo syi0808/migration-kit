@@ -40,7 +40,8 @@ function createRuntimeCheck(
     throw new Error(`Invalid ${runtimeName} version range: ${version}`);
   }
 
-  return () => {
+  const label = version ? `${runtimeName} ${version}` : runtimeName;
+  const check: EnvironmentRequirementCheck = () => {
     const projectRequirement = readProjectRuntimeRequirement(runtimeName, cwd);
 
     if (projectRequirement) {
@@ -70,6 +71,12 @@ function createRuntimeCheck(
 
     return semver.satisfies(currentVersion, version, { includePrerelease: true });
   };
+
+  check.label = label;
+  check.successMessage = version ? `${label} satisfied` : `${label} available`;
+  check.failureMessage = version ? `${label} required` : `${label} unavailable`;
+
+  return check;
 }
 
 function readProjectRuntimeRequirement(

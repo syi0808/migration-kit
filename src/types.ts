@@ -24,7 +24,20 @@ export type MigrationRunnerOptions =
 
 export type EnvironmentAvailableStatus = boolean;
 
-export type EnvironmentRequirementCheck = () => EnvironmentAvailableStatus;
+export type EnvironmentRequirementResult =
+  | EnvironmentAvailableStatus
+  | {
+      available: EnvironmentAvailableStatus;
+      message?: string;
+    };
+
+export type EnvironmentRequirementCheck = (() =>
+  | EnvironmentRequirementResult
+  | Promise<EnvironmentRequirementResult>) & {
+  label?: string;
+  successMessage?: string;
+  failureMessage?: string;
+};
 
 export interface RuntimeRequirementOptions {
   version?: string;
