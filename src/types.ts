@@ -1,14 +1,26 @@
-export interface MigrationRunnerOptions {
-  name: string;
-  from: string;
-  to: string;
-  docs?: string;
-  configPath?: string[];
-  environment?: EnvironmentRequirementCheck[];
-  peerDependencies?: PeerDependency[];
-  configChanges?: ConfigChange[];
-  apiChanges?: ApiChange[];
-}
+export type MigrationRunnerOptions =
+  | {
+      name: string;
+      from: string;
+      to: string;
+      docs?: string;
+      configPath?: string[];
+      environment?: EnvironmentRequirementCheck[];
+      peerDependencies?: PeerDependency[];
+      configChanges?: ConfigChange[];
+      apiChanges?: ApiChange[];
+    }
+  | {
+      name: string;
+      from: string;
+      to: string;
+      docs?: string;
+      configPath: string[];
+      environment?: EnvironmentRequirementCheck[];
+      peerDependencies?: PeerDependency[];
+      configChanges: ConfigChange[];
+      apiChanges?: ApiChange[];
+    };
 
 export type EnvironmentAvailableStatus = boolean;
 
