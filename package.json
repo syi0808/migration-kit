@@ -10,7 +10,8 @@
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "fmt": "oxfmt",
-    "fmt:check": "oxfmt --check"
+    "fmt:check": "oxfmt --check",
+    "test": "vitest run"
   },
   "dependencies": {
     "log-update": "^8.0.0",
@@ -19,6 +20,7 @@
   },
   "devDependencies": {
     "@types/node": "^25.9.1",
+    "@types/semver": "^7.7.1",
     "oxfmt": "^0.52.0",
     "oxlint": "^1.67.0",
     "tsdown": "^0.22.1",

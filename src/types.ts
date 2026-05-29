@@ -26,6 +26,12 @@ export type EnvironmentAvailableStatus = boolean;
 
 export type EnvironmentRequirementCheck = () => EnvironmentAvailableStatus;
 
+export interface RuntimeRequirementOptions {
+  version?: string;
+  command?: string;
+  cwd?: string;
+}
+
 export interface PeerDependency {
   dependency: string;
   requiredVersion: string;
