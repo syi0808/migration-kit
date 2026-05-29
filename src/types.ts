@@ -35,5 +35,9 @@ export interface ApiChange {
   transform?: Transformer;
 }
 
-export type TransformedCode = string;
-export type Transformer = (filePath: string) => TransformedCode;
+export type TransformResult =
+  | { status: "updated"; filePath: string }
+  | { status: "unchanged"; filePath: string }
+  | { status: "needs-review"; filePath: string; reason: string }
+  | { status: "failed"; filePath: string; reason: string };
+type Transformer = (filePath: string) => Promise<TransformResult> | TransformResult;
