@@ -35,6 +35,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@clack/prompts": "^1.5.0",
     "log-update": "^8.0.0",
     "semver": "^7.8.1",
     "tinyglobby": "^0.2.16"
