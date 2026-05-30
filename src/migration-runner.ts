@@ -3,6 +3,8 @@ import { configChangesTask } from "./tasks/config-changes.js";
 import { dependenciesTask } from "./tasks/dependencies.js";
 import { environmentTask } from "./tasks/environment.js";
 import type { MigrationRunnerOptions } from "./types.js";
+import { existsSync } from "node:fs";
+import { isAbsolute, resolve } from "node:path";
 import { createLogUpdate } from "log-update";
 
 const logUpdate = createLogUpdate(process.stdout);
@@ -43,16 +45,16 @@ function createMigrationRunner(options: MigrationRunnerOptions): { run: () => Pr
       if (configChanges && configChanges.length > 0) {
         logUpdate.persist("Config Changes");
 
-        const findedConfigPath = configPath?.at(0); // TODO: Find config file with configPath
+        const foundConfigPath = findConfigPath(configPath ?? []);
 
-        if (findedConfigPath) {
-          await configChangesTask(logUpdate, configChanges, findedConfigPath);
+        if (foundConfigPath) {
+          await configChangesTask(logUpdate, configChanges, foundConfigPath);
         } else {
-          logUpdate.persist("Config file not founded.");
+          logUpdate.persist("Config file not found.");
         }
       }
 
-      if (apiChanges && apiChanges.length < 0) {
+      if (apiChanges && apiChanges.length > 0) {
         logUpdate.persist("API Changes");
 
         await apiChangesTask(logUpdate, apiChanges);
@@ -65,6 +67,18 @@ function createMigrationRunner(options: MigrationRunnerOptions): { run: () => Pr
   };
 
   return { run };
+}
+
+function findConfigPath(configPath: string[]): string | null {
+  for (const path of configPath) {
+    const resolvedPath = isAbsolute(path) ? path : resolve(process.cwd(), path);
+
+    if (existsSync(resolvedPath)) {
+      return resolvedPath;
+    }
+  }
+
+  return null;
 }
 
 export { createMigrationRunner };

@@ -50,10 +50,12 @@ export interface PeerDependency {
   requiredVersion: string;
 }
 
+export type ChangeLevel = "error" | "warning";
+
 export interface ConfigChange {
   title: string;
   description?: string;
-  level: "error" | "warning";
+  level: ChangeLevel;
   shouldBlock?: (configPath: string) => false | { reason: string };
   transform?: Transformer;
 }
@@ -61,8 +63,9 @@ export interface ConfigChange {
 export interface ApiChange {
   title: string;
   description?: string;
+  level?: ChangeLevel;
   files: string[];
-  shouldBlock?: (configPath: string) => false | { reason: string };
+  shouldBlock?: (filePath: string) => false | { reason: string };
   transform?: Transformer;
 }
 
