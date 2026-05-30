@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { stripAnsi } from "../utils/log-style.js";
 import { configChangesTask } from "./config-changes.js";
 
 const originalCwd = process.cwd();
@@ -37,7 +38,7 @@ describe("configChangesTask", () => {
     );
 
     expect(messages).toEqual([
-      "  Remove old coverage option",
+      "  → Remove old coverage option",
       "    coverage.all has been removed",
       "    ✓ Updated",
       "    ✓ Not blocked",
@@ -75,11 +76,11 @@ describe("configChangesTask", () => {
     );
 
     expect(messages).toEqual([
-      "  Remove old coverage option",
+      "  → Remove old coverage option",
       "    ✗ Blocked",
       "      Replace coverage.all with coverage.include",
-      "      Waiting for changes under cwd...",
-      "    - Rechecking after file change",
+      "      → Waiting for changes under cwd...",
+      "    → Rechecking after file change",
       "    ✓ Not blocked",
     ]);
   });
@@ -101,7 +102,7 @@ describe("configChangesTask", () => {
     );
 
     expect(messages).toEqual([
-      "  Review deprecated config option",
+      "  → Review deprecated config option",
       "    ! Blocked",
       "      Check whether this option still applies",
     ]);
@@ -127,7 +128,7 @@ describe("configChangesTask", () => {
       ),
     ).rejects.toThrow("Config changes require attention.");
 
-    expect(messages).toEqual(["  Rewrite config", "    ✗ Failed", "      transform failed"]);
+    expect(messages).toEqual(["  → Rewrite config", "    ✗ Failed", "      transform failed"]);
   });
 });
 
@@ -151,7 +152,7 @@ function createTestLogUpdate(messages: string[]): ReturnType<typeof createLogUpd
     clear: () => {},
     done: () => {},
     persist: (...text: string[]) => {
-      messages.push(text.join(" "));
+      messages.push(stripAnsi(text.join(" ")));
     },
   });
 }

@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { createLogUpdate } from "log-update";
 import type { PeerDependency } from "../types.js";
+import { logStyle } from "../utils/log-style.js";
 import semver from "semver";
 
 function dependenciesTask(logUpdate: ReturnType<typeof createLogUpdate>, checks: PeerDependency[]) {
@@ -15,7 +16,9 @@ function dependenciesTask(logUpdate: ReturnType<typeof createLogUpdate>, checks:
       hasFailure = true;
     }
 
-    logUpdate.persist(`  ${result.satisfied ? "✓" : "✗"} ${result.message}`);
+    logUpdate.persist(
+      result.satisfied ? logStyle.success(result.message) : logStyle.error(result.message),
+    );
   }
 
   if (hasFailure) {

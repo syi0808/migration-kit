@@ -3,6 +3,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { stripAnsi } from "../utils/log-style.js";
 import { detectPackageManager, packageVersionTask } from "./package-version.js";
 import type {
   PackageManager,
@@ -52,9 +53,9 @@ describe("packageVersionTask", () => {
     });
     expect(installs).toEqual([{ packageManager: "pnpm", cwd }]);
     expect(messages).toEqual([
-      "  ✓ Detected pnpm package manager (packageManager)",
-      "  ✓ vitest ^3.2.0 -> ^4.0.0 (devDependencies)",
-      "  ✓ @vitest/ui workspace:^3.2.0 -> workspace:^4.0.0 (devDependencies)",
+      "  → Detected pnpm package manager (packageManager)",
+      "  ✓ vitest ^3.2.0 → ^4.0.0 (devDependencies)",
+      "  ✓ @vitest/ui workspace:^3.2.0 → workspace:^4.0.0 (devDependencies)",
       "  ✓ Installed dependencies with pnpm",
     ]);
   });
@@ -85,7 +86,7 @@ describe("packageVersionTask", () => {
 
     expect(installs).toEqual([]);
     expect(messages).toEqual([
-      "  ✓ Detected npm package manager (packageManager)",
+      "  → Detected npm package manager (packageManager)",
       "  - vitest already satisfies ^4.0.0",
       "  - @vitest/ui not found",
       "  ✓ Package versions already up to date",
@@ -134,9 +135,9 @@ describe("packageVersionTask", () => {
     ]);
     expect(installs).toEqual([{ packageManager: "pnpm", cwd }]);
     expect(messages).toEqual([
-      "  ✓ Detected pnpm package manager (packageManager)",
-      "  ✓ vitest ^3.2.0 -> 4.1.7 (devDependencies)",
-      "  ✓ @vitest/ui workspace:^3.2.0 -> workspace:4.1.7 (devDependencies)",
+      "  → Detected pnpm package manager (packageManager)",
+      "  ✓ vitest ^3.2.0 → 4.1.7 (devDependencies)",
+      "  ✓ @vitest/ui workspace:^3.2.0 → workspace:4.1.7 (devDependencies)",
       "  ✓ Installed dependencies with pnpm",
     ]);
   });
@@ -164,8 +165,8 @@ describe("packageVersionTask", () => {
     expect(packageJson.devDependencies.vitest).toBe("4.1.7");
     expect(installs).toEqual([{ packageManager: "npm", cwd }]);
     expect(messages).toEqual([
-      "  ✓ Detected npm package manager (packageManager)",
-      "  ✓ vitest ^4.0.0 -> 4.1.7 (devDependencies)",
+      "  → Detected npm package manager (packageManager)",
+      "  ✓ vitest ^4.0.0 → 4.1.7 (devDependencies)",
       "  ✓ Installed dependencies with npm",
     ]);
   });
@@ -195,7 +196,7 @@ describe("packageVersionTask", () => {
     expect(packageJson.devDependencies.vitest).toBe("^3.2.0");
     expect(installs).toEqual([]);
     expect(messages).toEqual([
-      "  ✓ Detected pnpm package manager (packageManager)",
+      "  → Detected pnpm package manager (packageManager)",
       "  ✗ vitest could not resolve target 4.x",
     ]);
   });
@@ -224,7 +225,7 @@ describe("packageVersionTask", () => {
     expect(packageJson.devDependencies.vitest).toBe("^2.0.0");
     expect(installs).toEqual([]);
     expect(messages).toEqual([
-      "  ✓ Detected pnpm package manager (packageManager)",
+      "  → Detected pnpm package manager (packageManager)",
       "  ✗ vitest expected 3.x, current ^2.0.0",
     ]);
   });
@@ -287,7 +288,7 @@ function createTestLogUpdate(messages: string[]): ReturnType<typeof createLogUpd
     clear: () => {},
     done: () => {},
     persist: (...text: string[]) => {
-      messages.push(text.join(" "));
+      messages.push(stripAnsi(text.join(" ")));
     },
   });
 }

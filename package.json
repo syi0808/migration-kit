@@ -43,7 +43,8 @@
     "@clack/prompts": "^1.5.0",
     "log-update": "^8.0.0",
     "semver": "^7.8.1",
-    "tinyglobby": "^0.2.16"
+    "tinyglobby": "^0.2.16",
+    "tinyrainbow": "3.1.0"
   },
   "devDependencies": {
     "@types/node": "^25.9.1",

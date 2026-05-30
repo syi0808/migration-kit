@@ -1,6 +1,7 @@
 import type { createLogUpdate } from "log-update";
 import { describe, expect, it } from "vitest";
 import type { EnvironmentRequirementCheck } from "../types.js";
+import { stripAnsi } from "../utils/log-style.js";
 import { environmentTask } from "./environment.js";
 
 describe("environmentTask", () => {
@@ -57,7 +58,7 @@ function createTestLogUpdate(messages: string[]): ReturnType<typeof createLogUpd
     clear: () => {},
     done: () => {},
     persist: (...text: string[]) => {
-      messages.push(text.join(" "));
+      messages.push(stripAnsi(text.join(" ")));
     },
   });
 }

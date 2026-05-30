@@ -6,6 +6,7 @@ import { join } from "node:path";
 import type { createLogUpdate } from "log-update";
 import semver from "semver";
 import type { PackageVersionUpdate } from "../types.js";
+import { logStyle } from "../utils/log-style.js";
 
 const dependencyFields = [
   "dependencies",
@@ -85,7 +86,9 @@ async function packageVersionTask(
   let hasUpdate = false;
 
   logUpdate.persist(
-    `  ✓ Detected ${packageManager.packageManager} package manager (${packageManager.source})`,
+    logStyle.info(
+      `Detected ${packageManager.packageManager} package manager (${packageManager.source})`,
+    ),
   );
 
   for (const update of updates) {
@@ -102,18 +105,20 @@ async function packageVersionTask(
     if (result.status === "updated") {
       hasUpdate = true;
       logUpdate.persist(
-        `  ✓ ${result.dependency} ${result.currentVersion} -> ${result.nextVersion} (${result.field})`,
+        logStyle.success(
+          `${result.dependency} ${result.currentVersion} → ${result.nextVersion} (${result.field})`,
+        ),
       );
       continue;
     }
 
     if (result.status === "failed") {
       hasFailure = true;
-      logUpdate.persist(`  ✗ ${result.dependency} ${result.reason}`);
+      logUpdate.persist(logStyle.error(`${result.dependency} ${result.reason}`));
       continue;
     }
 
-    logUpdate.persist(`  - ${result.dependency} ${result.reason}`);
+    logUpdate.persist(logStyle.skipped(`${result.dependency} ${result.reason}`));
   }
 
   if (hasFailure) {
@@ -121,7 +126,7 @@ async function packageVersionTask(
   }
 
   if (!hasUpdate) {
-    logUpdate.persist("  ✓ Package versions already up to date");
+    logUpdate.persist(logStyle.success("Package versions already up to date"));
     return;
   }
 
@@ -131,7 +136,9 @@ async function packageVersionTask(
   );
 
   await (options.runInstall ?? runPackageManagerInstall)(packageManager.packageManager, cwd);
-  logUpdate.persist(`  ✓ Installed dependencies with ${packageManager.packageManager}`);
+  logUpdate.persist(
+    logStyle.success(`Installed dependencies with ${packageManager.packageManager}`),
+  );
 }
 
 function detectPackageManager(

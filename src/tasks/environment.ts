@@ -1,5 +1,6 @@
 import type { createLogUpdate } from "log-update";
 import type { EnvironmentRequirementCheck, EnvironmentRequirementResult } from "../types.js";
+import { logStyle } from "../utils/log-style.js";
 
 async function environmentTask(
   logUpdate: ReturnType<typeof createLogUpdate>,
@@ -11,12 +12,12 @@ async function environmentTask(
       const available = isAvailable(result);
       const message = formatCheckMessage(check, result, available, index);
 
-      logUpdate.persist(`  ${available ? "✓" : "✗"} ${message}`);
+      logUpdate.persist(available ? logStyle.success(message) : logStyle.error(message));
     } catch (error) {
       const label = check.label ?? `Check ${index + 1}`;
       const message = formatError(error);
 
-      logUpdate.persist(`  ✗ ${label}: ${message}`);
+      logUpdate.persist(logStyle.error(`${label}: ${message}`));
     }
   }
 }

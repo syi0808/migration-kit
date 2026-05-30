@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { stripAnsi } from "../utils/log-style.js";
 import { apiChangesTask } from "./api-changes.js";
 
 const originalCwd = process.cwd();
@@ -52,7 +53,7 @@ describe("apiChangesTask", () => {
 
     expect(transformedFiles).toEqual(["src/a.test.ts", "src/b.test.ts"]);
     expect(messages).toEqual([
-      "  Update mock implementation",
+      "  → Update mock implementation",
       "    ✓ 1 auto-fixed",
       "    ! 1 needs review",
       "      src/b.test.ts: Inspect constructor mock",
@@ -73,7 +74,7 @@ describe("apiChangesTask", () => {
       },
     ]);
 
-    expect(messages).toEqual(["  Update tests", "    - No files matched"]);
+    expect(messages).toEqual(["  → Update tests", "    - No files matched"]);
   });
 
   it("rechecks error-level blockers after cwd file changes", async () => {
@@ -104,11 +105,11 @@ describe("apiChangesTask", () => {
     ]);
 
     expect(messages).toEqual([
-      "  Remove old API",
+      "  → Remove old API",
       "    ✗ 1 blocked",
       "      src/a.ts: Replace oldApi with newApi",
-      "      Waiting for changes under cwd...",
-      "    - Rechecking after file change",
+      "      → Waiting for changes under cwd...",
+      "    → Rechecking after file change",
       "    ✓ Not blocked",
     ]);
   });
@@ -130,7 +131,7 @@ describe("apiChangesTask", () => {
     ]);
 
     expect(messages).toEqual([
-      "  Review old API",
+      "  → Review old API",
       "    ! 1 blocked",
       "      src/a.ts: Check whether oldApi is still supported",
     ]);
@@ -156,7 +157,7 @@ describe("apiChangesTask", () => {
     ).rejects.toThrow("API changes require attention.");
 
     expect(messages).toEqual([
-      "  Rewrite old API",
+      "  → Rewrite old API",
       "    ✗ 1 failed",
       "      src/a.ts: transform failed",
     ]);
@@ -183,7 +184,7 @@ function createTestLogUpdate(messages: string[]): ReturnType<typeof createLogUpd
     clear: () => {},
     done: () => {},
     persist: (...text: string[]) => {
-      messages.push(text.join(" "));
+      messages.push(stripAnsi(text.join(" ")));
     },
   });
 }

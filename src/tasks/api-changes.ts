@@ -2,22 +2,23 @@ import type { createLogUpdate } from "log-update";
 import { relative } from "node:path";
 import { glob } from "tinyglobby";
 import type { ApiChange, TransformResult, Transformer } from "../types.js";
+import { logStyle } from "../utils/log-style.js";
 import { waitForCwdChange } from "../utils/watch.js";
 
 async function apiChangesTask(logUpdate: ReturnType<typeof createLogUpdate>, checks: ApiChange[]) {
   let hasFailure = false;
 
   for (const check of checks) {
-    logUpdate.persist(`  ${check.title}`);
+    logUpdate.persist(logStyle.info(check.title));
 
     if (check.description) {
-      logUpdate.persist(`    ${check.description}`);
+      logUpdate.persist(logStyle.detail(check.description));
     }
 
     const filePaths = await findFiles(check.files);
 
     if (filePaths.length === 0) {
-      logUpdate.persist("    - No files matched");
+      logUpdate.persist(logStyle.skipped("No files matched", 2));
       continue;
     }
 
@@ -109,9 +110,9 @@ async function waitForApiBlockCheck(
       return false;
     }
 
-    logUpdate.persist("      Waiting for changes under cwd...");
+    logUpdate.persist(logStyle.info("Waiting for changes under cwd...", 3));
     await waitForCwdChange();
-    logUpdate.persist("    - Rechecking after file change");
+    logUpdate.persist(logStyle.info("Rechecking after file change", 2));
   }
 }
 
@@ -179,28 +180,31 @@ function recordTransformResult(summary: Summary, result: TransformResult) {
 
 function logTransformSummary(logUpdate: ReturnType<typeof createLogUpdate>, summary: Summary) {
   if (summary.updated > 0) {
-    logUpdate.persist(`    ✓ ${summary.updated} auto-fixed`);
+    logUpdate.persist(logStyle.success(`${summary.updated} auto-fixed`, 2));
   }
 
   if (summary.unchanged > 0) {
-    logUpdate.persist(`    ✓ ${summary.unchanged} unchanged`);
+    logUpdate.persist(logStyle.success(`${summary.unchanged} unchanged`, 2));
   }
 
   if (summary.needsReview.length > 0) {
     logUpdate.persist(
-      `    ! ${summary.needsReview.length} ${pluralize(summary.needsReview.length, "needs review", "need review")}`,
+      logStyle.warning(
+        `${summary.needsReview.length} ${pluralize(summary.needsReview.length, "needs review", "need review")}`,
+        2,
+      ),
     );
 
     for (const result of summary.needsReview) {
-      logUpdate.persist(`      ${formatFileResult(result.filePath, result.reason)}`);
+      logUpdate.persist(logStyle.detail(formatFileResult(result.filePath, result.reason), 3));
     }
   }
 
   if (summary.failed.length > 0) {
-    logUpdate.persist(`    ✗ ${summary.failed.length} failed`);
+    logUpdate.persist(logStyle.error(`${summary.failed.length} failed`, 2));
 
     for (const result of summary.failed) {
-      logUpdate.persist(`      ${formatFileResult(result.filePath, result.reason)}`);
+      logUpdate.persist(logStyle.detail(formatFileResult(result.filePath, result.reason), 3));
     }
   }
 }
@@ -211,21 +215,25 @@ function logBlockSummary(
   level: NonNullable<ApiChange["level"]>,
 ) {
   if (summary.blocked.length > 0) {
-    logUpdate.persist(`    ${level === "error" ? "✗" : "!"} ${summary.blocked.length} blocked`);
+    logUpdate.persist(
+      level === "error"
+        ? logStyle.error(`${summary.blocked.length} blocked`, 2)
+        : logStyle.warning(`${summary.blocked.length} blocked`, 2),
+    );
 
     for (const result of summary.blocked) {
-      logUpdate.persist(`      ${formatFileResult(result.filePath, result.reason)}`);
+      logUpdate.persist(logStyle.detail(formatFileResult(result.filePath, result.reason), 3));
     }
   }
 
   if (summary.blocked.length === 0 && summary.failed.length === 0) {
-    logUpdate.persist("    ✓ Not blocked");
+    logUpdate.persist(logStyle.success("Not blocked", 2));
   }
 
   if (summary.failed.length > 0) {
-    logUpdate.persist(`    ✗ ${summary.failed.length} block check failed`);
+    logUpdate.persist(logStyle.error(`${summary.failed.length} block check failed`, 2));
     for (const result of summary.failed) {
-      logUpdate.persist(`      ${formatFileResult(result.filePath, result.reason)}`);
+      logUpdate.persist(logStyle.detail(formatFileResult(result.filePath, result.reason), 3));
     }
   }
 }
@@ -235,7 +243,7 @@ function pluralize(count: number, singular: string, plural: string) {
 }
 
 function formatFileResult(filePath: string, reason: string) {
-  return `${relative(process.cwd(), filePath) || filePath}: ${reason}`;
+  return `${logStyle.path(relative(process.cwd(), filePath) || filePath)}: ${reason}`;
 }
 
 function formatError(error: unknown) {

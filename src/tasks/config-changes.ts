@@ -1,5 +1,6 @@
 import type { createLogUpdate } from "log-update";
 import type { ConfigChange, TransformResult, Transformer } from "../types.js";
+import { logStyle } from "../utils/log-style.js";
 import { waitForCwdChange } from "../utils/watch.js";
 
 async function configChangesTask(
@@ -10,10 +11,10 @@ async function configChangesTask(
   let hasFailure = false;
 
   for (const check of checks) {
-    logUpdate.persist(`  ${check.title}`);
+    logUpdate.persist(logStyle.info(check.title));
 
     if (check.description) {
-      logUpdate.persist(`    ${check.description}`);
+      logUpdate.persist(logStyle.detail(check.description));
     }
 
     if (check.transform) {
@@ -49,28 +50,28 @@ async function waitForConfigBlockCheck(
     const result = runBlockCheck(check.shouldBlock, configPath);
 
     if (result.status === "failed") {
-      logUpdate.persist("    ✗ Block check failed");
-      logUpdate.persist(`      ${result.reason}`);
+      logUpdate.persist(logStyle.error("Block check failed", 2));
+      logUpdate.persist(logStyle.detail(result.reason, 3));
       return true;
     }
 
     if (result.status === "passed") {
-      logUpdate.persist("    ✓ Not blocked");
+      logUpdate.persist(logStyle.success("Not blocked", 2));
       return false;
     }
 
     const failed = check.level === "error";
 
-    logUpdate.persist(`    ${failed ? "✗" : "!"} Blocked`);
-    logUpdate.persist(`      ${result.reason}`);
+    logUpdate.persist(failed ? logStyle.error("Blocked", 2) : logStyle.warning("Blocked", 2));
+    logUpdate.persist(logStyle.detail(result.reason, 3));
 
     if (!failed) {
       return false;
     }
 
-    logUpdate.persist("      Waiting for changes under cwd...");
+    logUpdate.persist(logStyle.info("Waiting for changes under cwd...", 3));
     await waitForCwdChange();
-    logUpdate.persist("    - Rechecking after file change");
+    logUpdate.persist(logStyle.info("Rechecking after file change", 2));
   }
 }
 
@@ -105,23 +106,23 @@ function logTransformResult(
   result: TransformResult,
 ) {
   if (result.status === "updated") {
-    logUpdate.persist("    ✓ Updated");
+    logUpdate.persist(logStyle.success("Updated", 2));
     return;
   }
 
   if (result.status === "unchanged") {
-    logUpdate.persist("    ✓ Unchanged");
+    logUpdate.persist(logStyle.success("Unchanged", 2));
     return;
   }
 
   if (result.status === "needs-review") {
-    logUpdate.persist("    ! Needs review");
-    logUpdate.persist(`      ${result.reason}`);
+    logUpdate.persist(logStyle.warning("Needs review", 2));
+    logUpdate.persist(logStyle.detail(result.reason, 3));
     return;
   }
 
-  logUpdate.persist("    ✗ Failed");
-  logUpdate.persist(`      ${result.reason}`);
+  logUpdate.persist(logStyle.error("Failed", 2));
+  logUpdate.persist(logStyle.detail(result.reason, 3));
 }
 
 function formatError(error: unknown) {

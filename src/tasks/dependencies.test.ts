@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { stripAnsi } from "../utils/log-style.js";
 import { dependenciesTask } from "./dependencies.js";
 
 const originalCwd = process.cwd();
@@ -100,7 +101,7 @@ function createTestLogUpdate(messages: string[]): ReturnType<typeof createLogUpd
     clear: () => {},
     done: () => {},
     persist: (...text: string[]) => {
-      messages.push(text.join(" "));
+      messages.push(stripAnsi(text.join(" ")));
     },
   });
 }

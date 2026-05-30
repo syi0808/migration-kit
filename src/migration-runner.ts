@@ -7,6 +7,7 @@ import type { MigrationRunnerOptions } from "./types.js";
 import { existsSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
 import { createLogUpdate } from "log-update";
+import { logStyle } from "./utils/log-style.js";
 
 const logUpdate = createLogUpdate(process.stdout);
 
@@ -26,51 +27,51 @@ function createMigrationRunner(options: MigrationRunnerOptions): { run: () => Pr
     } = options;
 
     try {
-      logUpdate.persist(`${name} (${from} -> ${to})`);
+      logUpdate.persist(logStyle.section(`${name} (${from} → ${to})`));
 
       if (docs) {
-        logUpdate.persist(`Docs: ${docs}`);
+        logUpdate.persist(logStyle.info(`Docs: ${docs}`, 0));
       }
 
       if (environment && environment.length > 0) {
-        logUpdate.persist("Environment");
+        logUpdate.persist(logStyle.section("Environment"));
 
         await environmentTask(logUpdate, environment);
       }
 
       if (peerDependencies && peerDependencies.length > 0) {
-        logUpdate.persist("Dependencies");
+        logUpdate.persist(logStyle.section("Dependencies"));
 
         await dependenciesTask(logUpdate, peerDependencies);
       }
 
       if (packageVersionUpdates && packageVersionUpdates.length > 0) {
-        logUpdate.persist("Package Versions");
+        logUpdate.persist(logStyle.section("Package Versions"));
 
         await packageVersionTask(logUpdate, packageVersionUpdates, { from, to });
       }
 
       if (configChanges && configChanges.length > 0) {
-        logUpdate.persist("Config Changes");
+        logUpdate.persist(logStyle.section("Config Changes"));
 
         const foundConfigPath = findConfigPath(configPath ?? []);
 
         if (foundConfigPath) {
           await configChangesTask(logUpdate, configChanges, foundConfigPath);
         } else {
-          logUpdate.persist("Config file not found.");
+          logUpdate.persist(logStyle.skipped("Config file not found."));
         }
       }
 
       if (apiChanges && apiChanges.length > 0) {
-        logUpdate.persist("API Changes");
+        logUpdate.persist(logStyle.section("API Changes"));
 
         await apiChangesTask(logUpdate, apiChanges);
       }
 
-      logUpdate.persist(`${name} Completed!`);
+      logUpdate.persist(logStyle.success(`${name} completed`, 0));
     } catch {
-      logUpdate.persist(`${name} Failed!`);
+      logUpdate.persist(logStyle.error(`${name} failed`, 0));
     }
   };
 
