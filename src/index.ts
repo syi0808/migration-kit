@@ -10,4 +10,12 @@ export type {
   JscodeshiftParser,
   JscodeshiftTransform,
 } from "./transformer/jscodeshift.js";
-export type { Transformer, TransformResult } from "./types.js";
+export type {
+  ApiChange,
+  ConfigChange,
+  EnvironmentRequirementCheck,
+  MigrationRunnerOptions,
+  PeerDependency,
+  Transformer,
+  TransformResult,
+} from "./types.js";
