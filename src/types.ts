@@ -71,4 +71,4 @@ export type TransformResult =
   | { status: "unchanged"; filePath: string }
   | { status: "needs-review"; filePath: string; reason: string }
   | { status: "failed"; filePath: string; reason: string };
-type Transformer = (filePath: string) => Promise<TransformResult> | TransformResult;
+export type Transformer = (filePath: string) => Promise<TransformResult> | TransformResult;
