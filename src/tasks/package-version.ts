@@ -6,7 +6,7 @@ import { join } from "node:path";
 import type { createLogUpdate } from "log-update";
 import semver from "semver";
 import type { PackageVersionUpdate } from "../types.js";
-import { logStyle } from "../utils/log-style.js";
+import { logStyle, stripAnsi } from "../utils/log-style.js";
 
 const dependencyFields = [
   "dependencies",
@@ -41,7 +41,12 @@ type PackageVersionTaskOptions = {
   resolvePackageVersion?: ResolvePackageVersion;
 };
 
-type RunPackageManagerInstall = (packageManager: PackageManager, cwd: string) => Promise<void>;
+type InstallOutputHandler = (chunk: string) => void;
+type RunPackageManagerInstall = (
+  packageManager: PackageManager,
+  cwd: string,
+  onOutput?: InstallOutputHandler,
+) => Promise<void>;
 type ResolvePackageVersion = (dependency: string, versionRange: string) => Promise<string | null>;
 
 type PackageManagerDetection = {
@@ -135,9 +140,22 @@ async function packageVersionTask(
     stringifyPackageJson(packageJsonSource.packageJson, packageJsonSource.source),
   );
 
-  await (options.runInstall ?? runPackageManagerInstall)(packageManager.packageManager, cwd);
+  const installOutputPreview = createInstallOutputPreview(logUpdate, packageManager.packageManager);
+
+  installOutputPreview.render();
+
+  try {
+    await (options.runInstall ?? runPackageManagerInstall)(
+      packageManager.packageManager,
+      cwd,
+      installOutputPreview.append,
+    );
+  } finally {
+    installOutputPreview.clear();
+  }
+
   logUpdate.persist(
-    logStyle.success(`Installed dependencies with ${packageManager.packageManager}`),
+    logStyle.success(`Dependencies installed with ${packageManager.packageManager}`),
   );
 }
 
@@ -468,12 +486,93 @@ function detectJsonIndent(source: string): string | number {
   return match?.[1] ?? 2;
 }
 
-async function runPackageManagerInstall(packageManager: PackageManager, cwd: string) {
+function createInstallOutputPreview(
+  logUpdate: ReturnType<typeof createLogUpdate>,
+  packageManager: PackageManager,
+) {
+  const state = {
+    lines: [] as string[],
+    currentLine: "",
+  };
+
+  const render = () => {
+    const outputLines = readInstallOutputPreviewLines(state);
+    const message = [
+      logStyle.info(`Installing dependencies with ${packageManager}...`),
+      ...outputLines.map((line) => logStyle.detail(line, 2)),
+    ].join("\n");
+
+    logUpdate(message);
+  };
+
+  return {
+    append(chunk: string) {
+      appendInstallOutputChunk(state, chunk);
+      render();
+    },
+    clear() {
+      logUpdate.clear();
+    },
+    render,
+  };
+}
+
+function appendInstallOutputChunk(state: { lines: string[]; currentLine: string }, chunk: string) {
+  for (const character of chunk) {
+    if (character === "\n" || character === "\r") {
+      pushInstallOutputLine(state, state.currentLine);
+      state.currentLine = "";
+      continue;
+    }
+
+    state.currentLine += character;
+  }
+}
+
+function pushInstallOutputLine(state: { lines: string[]; currentLine: string }, line: string) {
+  const normalizedLine = normalizeInstallOutputLine(line);
+
+  if (!normalizedLine) {
+    return;
+  }
+
+  state.lines.push(normalizedLine);
+
+  if (state.lines.length > 4) {
+    state.lines.splice(0, state.lines.length - 4);
+  }
+}
+
+function readInstallOutputPreviewLines(state: { lines: string[]; currentLine: string }) {
+  const currentLine = normalizeInstallOutputLine(state.currentLine);
+  const lines = currentLine ? [...state.lines, currentLine] : state.lines;
+
+  return lines.slice(-4);
+}
+
+function normalizeInstallOutputLine(line: string) {
+  const normalizedLine = stripAnsi(line).trimEnd();
+
+  return normalizedLine.trim() ? normalizedLine : null;
+}
+
+async function runPackageManagerInstall(
+  packageManager: PackageManager,
+  cwd: string,
+  onOutput?: InstallOutputHandler,
+) {
   await new Promise<void>((resolvePromise, reject) => {
     const child = spawn(packageManager, ["install"], {
       cwd,
-      stdio: "inherit",
+      stdio: ["ignore", "pipe", "pipe"],
     });
+
+    if (onOutput) {
+      child.stdout?.setEncoding("utf8");
+      child.stdout?.on("data", onOutput);
+      child.stderr?.setEncoding("utf8");
+      child.stderr?.on("data", onOutput);
+    }
 
     child.on("error", (error) => {
       reject(new Error(`Failed to run ${packageManager} install: ${error.message}`));

@@ -56,7 +56,7 @@ describe("packageVersionTask", () => {
       "  → Detected pnpm package manager (packageManager)",
       "  ✓ vitest ^3.2.0 → ^4.0.0 (devDependencies)",
       "  ✓ @vitest/ui workspace:^3.2.0 → workspace:^4.0.0 (devDependencies)",
-      "  ✓ Installed dependencies with pnpm",
+      "  ✓ Dependencies installed with pnpm",
     ]);
   });
 
@@ -138,7 +138,7 @@ describe("packageVersionTask", () => {
       "  → Detected pnpm package manager (packageManager)",
       "  ✓ vitest ^3.2.0 → 4.1.7 (devDependencies)",
       "  ✓ @vitest/ui workspace:^3.2.0 → workspace:4.1.7 (devDependencies)",
-      "  ✓ Installed dependencies with pnpm",
+      "  ✓ Dependencies installed with pnpm",
     ]);
   });
 
@@ -167,7 +167,45 @@ describe("packageVersionTask", () => {
     expect(messages).toEqual([
       "  → Detected npm package manager (packageManager)",
       "  ✓ vitest ^4.0.0 → 4.1.7 (devDependencies)",
-      "  ✓ Installed dependencies with npm",
+      "  ✓ Dependencies installed with npm",
+    ]);
+  });
+
+  it("updates a rolling install output preview and replaces it when install completes", async () => {
+    const messages: string[] = [];
+    const updates: string[] = [];
+    const cwd = createProject({
+      packageManager: "pnpm@10.32.0",
+      devDependencies: {
+        vitest: "^3.2.0",
+      },
+    });
+
+    await packageVersionTask(
+      createTestLogUpdate(messages, updates),
+      [{ dependency: "vitest", to: "^4.0.0" }],
+      {
+        cwd,
+        from: "3.x",
+        to: "4.x",
+        runInstall: async (_packageManager, _cwd, onOutput) => {
+          onOutput?.("line 1\nline 2\n");
+          onOutput?.("line 3\nline 4\nline 5\npartial");
+          onOutput?.(" done\n");
+        },
+      },
+    );
+
+    expect(updates).toEqual([
+      "  → Installing dependencies with pnpm...",
+      "  → Installing dependencies with pnpm...\n    line 1\n    line 2",
+      "  → Installing dependencies with pnpm...\n    line 3\n    line 4\n    line 5\n    partial",
+      "  → Installing dependencies with pnpm...\n    line 3\n    line 4\n    line 5\n    partial done",
+    ]);
+    expect(messages).toEqual([
+      "  → Detected pnpm package manager (packageManager)",
+      "  ✓ vitest ^3.2.0 → ^4.0.0 (devDependencies)",
+      "  ✓ Dependencies installed with pnpm",
     ]);
   });
 
@@ -283,12 +321,20 @@ function recordPackageVersionResolution(
   };
 }
 
-function createTestLogUpdate(messages: string[]): ReturnType<typeof createLogUpdate> {
-  return Object.assign(() => {}, {
-    clear: () => {},
-    done: () => {},
-    persist: (...text: string[]) => {
-      messages.push(stripAnsi(text.join(" ")));
+function createTestLogUpdate(
+  messages: string[],
+  updates: string[] = [],
+): ReturnType<typeof createLogUpdate> {
+  return Object.assign(
+    (text = "") => {
+      updates.push(stripAnsi(text));
     },
-  });
+    {
+      clear: () => {},
+      done: () => {},
+      persist: (...text: string[]) => {
+        messages.push(stripAnsi(text.join(" ")));
+      },
+    },
+  );
 }
