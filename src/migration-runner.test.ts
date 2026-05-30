@@ -35,7 +35,6 @@ describe("createMigrationRunner", () => {
       configChanges: [
         {
           title: "Config transform",
-          level: "warning",
           transform: (filePath) => {
             observedVersions.push(`config:${readTargetPackageVersion(cwd)}`);
 

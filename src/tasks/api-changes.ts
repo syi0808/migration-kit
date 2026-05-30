@@ -91,12 +91,12 @@ async function waitForApiBlockCheck(
     return false;
   }
 
-  const level = check.level ?? "error";
+  const policy = check.policy ?? "blocking";
 
   while (true) {
     const summary = await collectBlockSummary(check);
 
-    logBlockSummary(logUpdate, summary, level);
+    logBlockSummary(logUpdate, summary, policy);
 
     if (summary.failed.length > 0) {
       return true;
@@ -106,7 +106,7 @@ async function waitForApiBlockCheck(
       return false;
     }
 
-    if (level === "warning") {
+    if (policy === "advisory") {
       return false;
     }
 
@@ -212,13 +212,16 @@ function logTransformSummary(logUpdate: ReturnType<typeof createLogUpdate>, summ
 function logBlockSummary(
   logUpdate: ReturnType<typeof createLogUpdate>,
   summary: Summary,
-  level: NonNullable<ApiChange["level"]>,
+  policy: NonNullable<ApiChange["policy"]>,
 ) {
   if (summary.blocked.length > 0) {
     logUpdate.persist(
-      level === "error"
+      policy === "blocking"
         ? logStyle.error(`${summary.blocked.length} blocked`, 2)
-        : logStyle.warning(`${summary.blocked.length} blocked`, 2),
+        : logStyle.warning(
+            `${summary.blocked.length} ${pluralize(summary.blocked.length, "advisory", "advisories")}`,
+            2,
+          ),
     );
 
     for (const result of summary.blocked) {
@@ -227,7 +230,7 @@ function logBlockSummary(
   }
 
   if (summary.blocked.length === 0 && summary.failed.length === 0) {
-    logUpdate.persist(logStyle.success("Not blocked", 2));
+    logUpdate.persist(logStyle.success(policy === "blocking" ? "Not blocked" : "No advisories", 2));
   }
 
   if (summary.failed.length > 0) {

@@ -46,6 +46,8 @@ async function waitForConfigBlockCheck(
     return false;
   }
 
+  const policy = check.policy ?? "blocking";
+
   while (true) {
     const result = runBlockCheck(check.shouldBlock, configPath);
 
@@ -56,16 +58,18 @@ async function waitForConfigBlockCheck(
     }
 
     if (result.status === "passed") {
-      logUpdate.persist(logStyle.success("Not blocked", 2));
+      logUpdate.persist(
+        logStyle.success(policy === "blocking" ? "Not blocked" : "No advisories", 2),
+      );
       return false;
     }
 
-    const failed = check.level === "error";
+    const blocked = policy === "blocking";
 
-    logUpdate.persist(failed ? logStyle.error("Blocked", 2) : logStyle.warning("Blocked", 2));
+    logUpdate.persist(blocked ? logStyle.error("Blocked", 2) : logStyle.warning("Advisory", 2));
     logUpdate.persist(logStyle.detail(result.reason, 3));
 
-    if (!failed) {
+    if (!blocked) {
       return false;
     }
 

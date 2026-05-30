@@ -58,12 +58,12 @@ export interface PackageVersionUpdate {
   to?: string;
 }
 
-export type ChangeLevel = "error" | "warning";
+export type BlockPolicy = "blocking" | "advisory";
 
 export interface ConfigChange {
   title: string;
   description?: string;
-  level: ChangeLevel;
+  policy?: BlockPolicy;
   shouldBlock?: (configPath: string) => false | { reason: string };
   transform?: Transformer;
 }
@@ -71,7 +71,7 @@ export interface ConfigChange {
 export interface ApiChange {
   title: string;
   description?: string;
-  level?: ChangeLevel;
+  policy?: BlockPolicy;
   files: string[];
   shouldBlock?: (filePath: string) => false | { reason: string };
   transform?: Transformer;

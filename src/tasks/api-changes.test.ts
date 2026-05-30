@@ -77,7 +77,7 @@ describe("apiChangesTask", () => {
     expect(messages).toEqual(["  → Update tests", "    - No files matched"]);
   });
 
-  it("rechecks error-level blockers after cwd file changes", async () => {
+  it("rechecks blocking-policy blockers after cwd file changes", async () => {
     const messages: string[] = [];
     const logUpdate = createTestLogUpdate(messages);
     const cwd = createProject({ "src/a.ts": "oldApi()" });
@@ -92,7 +92,7 @@ describe("apiChangesTask", () => {
     await apiChangesTask(logUpdate, [
       {
         title: "Remove old API",
-        level: "error",
+        policy: "blocking",
         files: ["src/**/*.ts"],
         shouldBlock: (filePath) => {
           if (!readFileSync(filePath, "utf8").includes("oldApi")) {
@@ -114,7 +114,7 @@ describe("apiChangesTask", () => {
     ]);
   });
 
-  it("continues after logging warning-level blockers", async () => {
+  it("continues after logging advisory-policy blockers", async () => {
     const messages: string[] = [];
     const logUpdate = createTestLogUpdate(messages);
     const cwd = createProject({ "src/a.ts": "a" });
@@ -124,7 +124,7 @@ describe("apiChangesTask", () => {
     await apiChangesTask(logUpdate, [
       {
         title: "Review old API",
-        level: "warning",
+        policy: "advisory",
         files: ["src/**/*.ts"],
         shouldBlock: () => ({ reason: "Check whether oldApi is still supported" }),
       },
@@ -132,7 +132,7 @@ describe("apiChangesTask", () => {
 
     expect(messages).toEqual([
       "  → Review old API",
-      "    ! 1 blocked",
+      "    ! 1 advisory",
       "      src/a.ts: Check whether oldApi is still supported",
     ]);
   });

@@ -8,7 +8,7 @@
 - **Runtime checks** - Verify Node.js, Bun, or Deno availability and semver ranges through commands and common project version files.
 - **Dependency requirements** - Check declared package ranges in `package.json` dependencies, dev dependencies, optional dependencies, and peer dependencies.
 - **Package version updates** - Detect npm, pnpm, Yarn, or Bun and update configured package ranges before transforms run.
-- **Config change handling** - Run a transform against the first matching config file and keep rechecking error-level blockers after files change.
+- **Config change handling** - Run a transform against the first matching config file and keep rechecking blocking findings after files change.
 - **API change scanning** - Find files with `tinyglobby`, run transforms, and summarize updated, unchanged, failed, and needs-review files.
 - **Transformer helpers** - Wrap `jscodeshift` and `ast-grep` transforms behind the shared `Transformer` result contract.
 
@@ -48,7 +48,7 @@ const migrationRunner = createMigrationRunner({
     {
       title: "Review removed config option",
       description: "legacyMode was removed in 2.x.",
-      level: "warning",
+      policy: "advisory",
       shouldBlock: (filePath) => {
         const source = readFileSync(filePath, "utf8");
 
@@ -61,7 +61,6 @@ const migrationRunner = createMigrationRunner({
   apiChanges: [
     {
       title: "Replace legacy API calls",
-      level: "warning",
       files: ["src/**/*.ts", "test/**/*.ts"],
       transform: transformer.astGrep("legacyApi()", { replace: "nextApi()" }),
     },
@@ -77,8 +76,8 @@ The runner executes work in this order:
 2. Run environment checks. Failed environment checks are reported without stopping the run.
 3. Check required dependencies from `package.json`. Failed dependency checks stop the migration.
 4. Detect the package manager, update configured package ranges from the migration `from` range to the `to` range, and run the package manager install command.
-5. Find the first existing config file from `configPath`, run config transforms, and recheck error-level blockers after project files change.
-6. Scan API change file globs, run transforms, summarize results, and recheck error-level blockers after project files change.
+5. Find the first existing config file from `configPath`, run config transforms, and recheck blocking findings after project files change.
+6. Scan API change file globs, run transforms, summarize results, and recheck blocking findings after project files change.
 
 ## API
 
@@ -105,6 +104,8 @@ The options object supports:
 - `configPath` candidates for config-file migrations
 - `configChanges` for config transforms and blockers
 - `apiChanges` for glob-based source transforms and blockers
+
+Block checks default to `policy: "blocking"`. A blocking check waits for project file changes and rechecks until the finding is resolved. Use `policy: "advisory"` when the runner should report the finding and continue.
 
 Each `packageVersionUpdates` entry defaults to the runner-level `from` and `to` values. Set entry-level `from` or `to` when the package range should be more specific than the displayed migration versions. Wildcard targets such as `4.x`, `4`, or `4.1.x` are resolved to the latest matching published package version before `package.json` is written.
 

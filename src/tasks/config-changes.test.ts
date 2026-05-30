@@ -29,7 +29,7 @@ describe("configChangesTask", () => {
         {
           title: "Remove old coverage option",
           description: "coverage.all has been removed",
-          level: "error",
+          policy: "blocking",
           transform: (filePath) => ({ status: "updated", filePath }),
           shouldBlock: () => false,
         },
@@ -45,7 +45,7 @@ describe("configChangesTask", () => {
     ]);
   });
 
-  it("rechecks error-level blockers after cwd file changes", async () => {
+  it("rechecks blocking-policy blockers after cwd file changes", async () => {
     const messages: string[] = [];
     const logUpdate = createTestLogUpdate(messages);
     const cwd = createProject({ "vitest.config.ts": "coverage.all = true" });
@@ -62,7 +62,7 @@ describe("configChangesTask", () => {
       [
         {
           title: "Remove old coverage option",
-          level: "error",
+          policy: "blocking",
           shouldBlock: () => {
             if (!readFileSync(configPath, "utf8").includes("coverage.all")) {
               return false;
@@ -85,7 +85,7 @@ describe("configChangesTask", () => {
     ]);
   });
 
-  it("continues after logging warning-level blockers", async () => {
+  it("continues after logging advisory-policy blockers", async () => {
     const messages: string[] = [];
     const logUpdate = createTestLogUpdate(messages);
 
@@ -94,7 +94,7 @@ describe("configChangesTask", () => {
       [
         {
           title: "Review deprecated config option",
-          level: "warning",
+          policy: "advisory",
           shouldBlock: () => ({ reason: "Check whether this option still applies" }),
         },
       ],
@@ -103,7 +103,7 @@ describe("configChangesTask", () => {
 
     expect(messages).toEqual([
       "  → Review deprecated config option",
-      "    ! Blocked",
+      "    ! Advisory",
       "      Check whether this option still applies",
     ]);
   });
@@ -118,7 +118,6 @@ describe("configChangesTask", () => {
         [
           {
             title: "Rewrite config",
-            level: "error",
             transform: () => {
               throw new Error("transform failed");
             },
