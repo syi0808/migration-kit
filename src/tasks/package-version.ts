@@ -1,5 +1,7 @@
 import { spawn } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { get as httpGet } from "node:http";
+import { get } from "node:https";
 import { join } from "node:path";
 import type { createLogUpdate } from "log-update";
 import semver from "semver";
@@ -35,9 +37,11 @@ type PackageVersionTaskOptions = {
   from: string;
   to: string;
   runInstall?: RunPackageManagerInstall;
+  resolvePackageVersion?: ResolvePackageVersion;
 };
 
 type RunPackageManagerInstall = (packageManager: PackageManager, cwd: string) => Promise<void>;
+type ResolvePackageVersion = (dependency: string, versionRange: string) => Promise<string | null>;
 
 type PackageManagerDetection = {
   packageManager: PackageManager;
@@ -85,10 +89,15 @@ async function packageVersionTask(
   );
 
   for (const update of updates) {
-    const result = updatePackageVersion(packageJsonSource.packageJson, update, {
-      from: update.from ?? options.from,
-      to: update.to ?? options.to,
-    });
+    const result = await updatePackageVersion(
+      packageJsonSource.packageJson,
+      update,
+      {
+        from: update.from ?? options.from,
+        to: update.to ?? options.to,
+      },
+      options.resolvePackageVersion ?? resolveLatestPackageVersion,
+    );
 
     if (result.status === "updated") {
       hasUpdate = true;
@@ -147,11 +156,12 @@ function detectPackageManager(
   return { packageManager: "npm", source: "default" };
 }
 
-function updatePackageVersion(
+async function updatePackageVersion(
   packageJson: PackageJson,
   update: PackageVersionUpdate,
   versionRange: { from: string; to: string },
-): PackageVersionUpdateResult {
+  resolvePackageVersion: ResolvePackageVersion,
+): Promise<PackageVersionUpdateResult> {
   const dependency = findDependency(packageJson, update.dependency);
 
   if (!dependency) {
@@ -172,21 +182,13 @@ function updatePackageVersion(
     };
   }
 
-  const targetVersion = versionRange.to.trim();
+  const requestedTargetVersion = versionRange.to.trim();
 
-  if (!targetVersion) {
+  if (!requestedTargetVersion) {
     return {
       status: "failed",
       dependency: update.dependency,
       reason: "has invalid target range",
-    };
-  }
-
-  if (currentVersion.trim() === targetVersion) {
-    return {
-      status: "unchanged",
-      dependency: update.dependency,
-      reason: `already uses ${targetVersion}`,
     };
   }
 
@@ -210,6 +212,43 @@ function updatePackageVersion(
     };
   }
 
+  const requestedTargetRange = semver.validRange(requestedTargetVersion, {
+    includePrerelease: true,
+  });
+  const resolvedTargetVersion = await resolveTargetVersion(
+    update.dependency,
+    requestedTargetVersion,
+    resolvePackageVersion,
+  ).catch(() => null);
+
+  if (!resolvedTargetVersion) {
+    return {
+      status: "failed",
+      dependency: update.dependency,
+      reason: `could not resolve target ${requestedTargetVersion}`,
+    };
+  }
+
+  const targetVersion = resolvedTargetVersion;
+
+  const nextVersion = getNextDependencyVersion(currentVersion, targetVersion);
+
+  if (!nextVersion) {
+    return {
+      status: "failed",
+      dependency: update.dependency,
+      reason: `cannot preserve protocol for target ${targetVersion}`,
+    };
+  }
+
+  if (currentVersion.trim() === nextVersion) {
+    return {
+      status: "unchanged",
+      dependency: update.dependency,
+      reason: `already uses ${targetVersion}`,
+    };
+  }
+
   const targetRange = semver.validRange(targetVersion, { includePrerelease: true });
 
   if (
@@ -223,25 +262,20 @@ function updatePackageVersion(
     };
   }
 
-  if (
-    !semver.intersects(normalizedCurrentRange, expectedRange, {
-      includePrerelease: true,
-    })
-  ) {
+  const currentIsInSourceRange = semver.intersects(normalizedCurrentRange, expectedRange, {
+    includePrerelease: true,
+  });
+  const currentIsInRequestedTargetRange = requestedTargetRange
+    ? semver.intersects(normalizedCurrentRange, requestedTargetRange, {
+        includePrerelease: true,
+      })
+    : false;
+
+  if (!currentIsInSourceRange && !currentIsInRequestedTargetRange) {
     return {
       status: "failed",
       dependency: update.dependency,
       reason: `expected ${versionRange.from}, current ${currentVersion}`,
-    };
-  }
-
-  const nextVersion = getNextDependencyVersion(currentVersion, targetVersion);
-
-  if (!nextVersion) {
-    return {
-      status: "failed",
-      dependency: update.dependency,
-      reason: `cannot preserve protocol for target ${targetVersion}`,
     };
   }
 
@@ -254,6 +288,92 @@ function updatePackageVersion(
     currentVersion,
     nextVersion,
   };
+}
+
+async function resolveTargetVersion(
+  dependency: string,
+  targetVersion: string,
+  resolvePackageVersion: ResolvePackageVersion,
+): Promise<string | null> {
+  if (!shouldResolveLatestVersion(targetVersion)) {
+    return targetVersion;
+  }
+
+  return resolvePackageVersion(dependency, targetVersion);
+}
+
+function shouldResolveLatestVersion(targetVersion: string): boolean {
+  if (!semver.validRange(targetVersion, { includePrerelease: true })) {
+    return false;
+  }
+
+  if (semver.valid(targetVersion)) {
+    return false;
+  }
+
+  return /^(?:v?\d+|v?\d+\.\d+|v?\d+\.(?:x|X|\*)|v?\d+\.\d+\.(?:x|X|\*)|x|X|\*)$/.test(
+    targetVersion.trim(),
+  );
+}
+
+async function resolveLatestPackageVersion(
+  dependency: string,
+  versionRange: string,
+): Promise<string | null> {
+  const metadata = await readPackageMetadata(dependency);
+  const versions = readRecord(metadata.versions);
+
+  if (!versions) {
+    return null;
+  }
+
+  return semver.maxSatisfying(Object.keys(versions), versionRange, {
+    includePrerelease: versionRange.includes("-"),
+  });
+}
+
+async function readPackageMetadata(dependency: string): Promise<Record<string, unknown>> {
+  const registry =
+    process.env.npm_config_registry ??
+    process.env.NPM_CONFIG_REGISTRY ??
+    "https://registry.npmjs.org/";
+  const registryUrl = new URL(registry.endsWith("/") ? registry : `${registry}/`);
+  const metadataUrl = new URL(encodeURIComponent(dependency), registryUrl);
+
+  return await new Promise<Record<string, unknown>>((resolvePromise, reject) => {
+    const request = (metadataUrl.protocol === "http:" ? httpGet : get)(metadataUrl, (response) => {
+      if (response.statusCode === 404) {
+        response.resume();
+        resolvePromise({});
+        return;
+      }
+
+      if (!response.statusCode || response.statusCode < 200 || response.statusCode >= 300) {
+        response.resume();
+        reject(new Error(`Failed to fetch ${dependency} metadata: HTTP ${response.statusCode}`));
+        return;
+      }
+
+      let source = "";
+
+      response.setEncoding("utf8");
+      response.on("data", (chunk) => {
+        source += chunk;
+      });
+      response.on("end", () => {
+        try {
+          resolvePromise(JSON.parse(source) as Record<string, unknown>);
+        } catch (error) {
+          reject(error);
+        }
+      });
+    });
+
+    request.on("error", reject);
+    request.setTimeout(30_000, () => {
+      request.destroy(new Error(`Timed out fetching ${dependency} metadata`));
+    });
+  });
 }
 
 function readPackageJsonSource(
@@ -364,4 +484,4 @@ async function runPackageManagerInstall(packageManager: PackageManager, cwd: str
 }
 
 export { detectPackageManager, packageVersionTask };
-export type { PackageManager, RunPackageManagerInstall };
+export type { PackageManager, ResolvePackageVersion, RunPackageManagerInstall };

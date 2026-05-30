@@ -4,7 +4,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { detectPackageManager, packageVersionTask } from "./package-version.js";
-import type { PackageManager, RunPackageManagerInstall } from "./package-version.js";
+import type {
+  PackageManager,
+  ResolvePackageVersion,
+  RunPackageManagerInstall,
+} from "./package-version.js";
 
 const tempDirectories: string[] = [];
 
@@ -88,6 +92,114 @@ describe("packageVersionTask", () => {
     ]);
   });
 
+  it("resolves wildcard target ranges to latest matching package versions", async () => {
+    const messages: string[] = [];
+    const installs: Array<{ packageManager: PackageManager; cwd: string }> = [];
+    const packageVersionResolutions: Array<{ dependency: string; versionRange: string }> = [];
+    const cwd = createProject({
+      packageManager: "pnpm@10.32.0",
+      devDependencies: {
+        vitest: "^3.2.0",
+        "@vitest/ui": "workspace:^3.2.0",
+      },
+    });
+
+    await packageVersionTask(
+      createTestLogUpdate(messages),
+      [
+        { dependency: "vitest", to: "4.x" },
+        { dependency: "@vitest/ui", to: "4.x" },
+      ],
+      {
+        cwd,
+        from: "3.x",
+        to: "4.x",
+        resolvePackageVersion: recordPackageVersionResolution(packageVersionResolutions, {
+          "vitest@4.x": "4.1.7",
+          "@vitest/ui@4.x": "4.1.7",
+        }),
+        runInstall: recordInstall(installs),
+      },
+    );
+
+    const packageJson = JSON.parse(readFileSync(join(cwd, "package.json"), "utf8"));
+
+    expect(packageJson.devDependencies).toEqual({
+      vitest: "4.1.7",
+      "@vitest/ui": "workspace:4.1.7",
+    });
+    expect(packageVersionResolutions).toEqual([
+      { dependency: "vitest", versionRange: "4.x" },
+      { dependency: "@vitest/ui", versionRange: "4.x" },
+    ]);
+    expect(installs).toEqual([{ packageManager: "pnpm", cwd }]);
+    expect(messages).toEqual([
+      "  ✓ Detected pnpm package manager (packageManager)",
+      "  ✓ vitest ^3.2.0 -> 4.1.7 (devDependencies)",
+      "  ✓ @vitest/ui workspace:^3.2.0 -> workspace:4.1.7 (devDependencies)",
+      "  ✓ Installed dependencies with pnpm",
+    ]);
+  });
+
+  it("normalizes packages already in the wildcard target range to the latest version", async () => {
+    const messages: string[] = [];
+    const installs: Array<{ packageManager: PackageManager; cwd: string }> = [];
+    const cwd = createProject({
+      packageManager: "npm@11.0.0",
+      devDependencies: {
+        vitest: "^4.0.0",
+      },
+    });
+
+    await packageVersionTask(createTestLogUpdate(messages), [{ dependency: "vitest" }], {
+      cwd,
+      from: "3.x",
+      to: "4.x",
+      resolvePackageVersion: async () => "4.1.7",
+      runInstall: recordInstall(installs),
+    });
+
+    const packageJson = JSON.parse(readFileSync(join(cwd, "package.json"), "utf8"));
+
+    expect(packageJson.devDependencies.vitest).toBe("4.1.7");
+    expect(installs).toEqual([{ packageManager: "npm", cwd }]);
+    expect(messages).toEqual([
+      "  ✓ Detected npm package manager (packageManager)",
+      "  ✓ vitest ^4.0.0 -> 4.1.7 (devDependencies)",
+      "  ✓ Installed dependencies with npm",
+    ]);
+  });
+
+  it("fails when a wildcard target range cannot be resolved", async () => {
+    const messages: string[] = [];
+    const installs: Array<{ packageManager: PackageManager; cwd: string }> = [];
+    const cwd = createProject({
+      packageManager: "pnpm@10.32.0",
+      devDependencies: {
+        vitest: "^3.2.0",
+      },
+    });
+
+    await expect(
+      packageVersionTask(createTestLogUpdate(messages), [{ dependency: "vitest", to: "4.x" }], {
+        cwd,
+        from: "3.x",
+        to: "4.x",
+        resolvePackageVersion: async () => null,
+        runInstall: recordInstall(installs),
+      }),
+    ).rejects.toThrow("Package version updates failed.");
+
+    const packageJson = JSON.parse(readFileSync(join(cwd, "package.json"), "utf8"));
+
+    expect(packageJson.devDependencies.vitest).toBe("^3.2.0");
+    expect(installs).toEqual([]);
+    expect(messages).toEqual([
+      "  ✓ Detected pnpm package manager (packageManager)",
+      "  ✗ vitest could not resolve target 4.x",
+    ]);
+  });
+
   it("fails when a configured package exists outside the source range", async () => {
     const messages: string[] = [];
     const installs: Array<{ packageManager: PackageManager; cwd: string }> = [];
@@ -156,6 +268,17 @@ function recordInstall(
 ): RunPackageManagerInstall {
   return async (packageManager, cwd) => {
     installs.push({ packageManager, cwd });
+  };
+}
+
+function recordPackageVersionResolution(
+  resolutions: Array<{ dependency: string; versionRange: string }>,
+  versions: Record<string, string>,
+): ResolvePackageVersion {
+  return async (dependency, versionRange) => {
+    resolutions.push({ dependency, versionRange });
+
+    return versions[`${dependency}@${versionRange}`] ?? null;
   };
 }
 

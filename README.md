@@ -43,7 +43,7 @@ const migrationRunner = createMigrationRunner({
   configPath: ["migration.config.ts"],
   environment: [runtime.node({ version: ">=20.0.0" })],
   peerDependencies: [{ dependency: "target-package", requiredVersion: ">=2.0.0" }],
-  packageVersionUpdates: [{ dependency: "target-package", to: "^2.0.0" }],
+  packageVersionUpdates: [{ dependency: "target-package", to: "2.x" }],
   configChanges: [
     {
       title: "Review removed config option",
@@ -106,7 +106,7 @@ The options object supports:
 - `configChanges` for config transforms and blockers
 - `apiChanges` for glob-based source transforms and blockers
 
-Each `packageVersionUpdates` entry defaults to the runner-level `from` and `to` values. Set entry-level `from` or `to` when the package range should be more specific than the displayed migration versions.
+Each `packageVersionUpdates` entry defaults to the runner-level `from` and `to` values. Set entry-level `from` or `to` when the package range should be more specific than the displayed migration versions. Wildcard targets such as `4.x`, `4`, or `4.1.x` are resolved to the latest matching published package version before `package.json` is written.
 
 ### `runtime`
 
