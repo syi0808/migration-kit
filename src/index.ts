@@ -15,6 +15,7 @@ export type {
   ConfigChange,
   EnvironmentRequirementCheck,
   MigrationRunnerOptions,
+  PackageVersionUpdate,
   PeerDependency,
   Transformer,
   TransformResult,

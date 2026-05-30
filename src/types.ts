@@ -7,6 +7,7 @@ export type MigrationRunnerOptions =
       configPath?: string[];
       environment?: EnvironmentRequirementCheck[];
       peerDependencies?: PeerDependency[];
+      packageVersionUpdates?: PackageVersionUpdate[];
       configChanges?: ConfigChange[];
       apiChanges?: ApiChange[];
     }
@@ -18,6 +19,7 @@ export type MigrationRunnerOptions =
       configPath: string[];
       environment?: EnvironmentRequirementCheck[];
       peerDependencies?: PeerDependency[];
+      packageVersionUpdates?: PackageVersionUpdate[];
       configChanges: ConfigChange[];
       apiChanges?: ApiChange[];
     };
@@ -48,6 +50,12 @@ export interface RuntimeRequirementOptions {
 export interface PeerDependency {
   dependency: string;
   requiredVersion: string;
+}
+
+export interface PackageVersionUpdate {
+  dependency: string;
+  from?: string;
+  to?: string;
 }
 
 export type ChangeLevel = "error" | "warning";

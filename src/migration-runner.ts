@@ -2,6 +2,7 @@ import { apiChangesTask } from "./tasks/api-changes.js";
 import { configChangesTask } from "./tasks/config-changes.js";
 import { dependenciesTask } from "./tasks/dependencies.js";
 import { environmentTask } from "./tasks/environment.js";
+import { packageVersionTask } from "./tasks/package-version.js";
 import type { MigrationRunnerOptions } from "./types.js";
 import { existsSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
@@ -19,6 +20,7 @@ function createMigrationRunner(options: MigrationRunnerOptions): { run: () => Pr
       configPath,
       environment,
       peerDependencies,
+      packageVersionUpdates,
       apiChanges,
       configChanges,
     } = options;
@@ -40,6 +42,12 @@ function createMigrationRunner(options: MigrationRunnerOptions): { run: () => Pr
         logUpdate.persist("Dependencies");
 
         await dependenciesTask(logUpdate, peerDependencies);
+      }
+
+      if (packageVersionUpdates && packageVersionUpdates.length > 0) {
+        logUpdate.persist("Package Versions");
+
+        await packageVersionTask(logUpdate, packageVersionUpdates, { from, to });
       }
 
       if (configChanges && configChanges.length > 0) {
