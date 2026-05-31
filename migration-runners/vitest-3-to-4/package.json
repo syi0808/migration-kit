@@ -1,0 +1,46 @@
+{
+  "name": "@migration-kit/vitest-3-to-4",
+  "version": "0.0.1",
+  "private": true,
+  "bin": {
+    "vitest-3-to-4": "./dist/index.mjs"
+  },
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      },
+      "default": "./dist/index.mjs"
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "migration-kit": "file:../..",
+    "semver": "^7.8.1",
+    "tinyrainbow": "3.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.1",
+    "@types/semver": "^7.7.1",
+    "jscodeshift": "^17.3.0",
+    "tsdown": "^0.22.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.7"
+  },
+  "peerDependencies": {
+    "vite": ">=6.0.0"
+  }
+}
