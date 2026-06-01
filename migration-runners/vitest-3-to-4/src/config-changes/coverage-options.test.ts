@@ -47,4 +47,32 @@ describe("coverageOptionsChange", () => {
     expect(output).not.toContain("experimentalAstAwareRemapping:");
     expect(output).toContain("include:");
   });
+
+  it("asks for manual confirmation when coverage.include is omitted", () => {
+    const directory = mkdtempSync(join(tmpdir(), "vitest-3-to-4-coverage-"));
+    const configPath = join(directory, "vitest.config.ts");
+
+    tempDirectories.push(directory);
+    mkdirSync(directory, { recursive: true });
+    writeFileSync(
+      configPath,
+      [
+        "export default {",
+        "  test: {",
+        "    coverage: {",
+        "      reporter: ['text'],",
+        "    },",
+        "  },",
+        "}",
+        "",
+      ].join("\n"),
+    );
+
+    expect(coverageOptionsChange.shouldBlock?.(configPath)).toEqual({
+      kind: "manual-confirmation",
+      reason:
+        "coverage.include is not defined; Vitest 4 reports only loaded files unless include is configured.",
+      prompt: "Confirm coverage.include is intentionally omitted, or add it before continuing.",
+    });
+  });
 });

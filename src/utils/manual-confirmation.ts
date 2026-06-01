@@ -6,6 +6,7 @@ async function requestManualConfirmation(message: string): Promise<boolean> {
     active: "Confirmed",
     inactive: "Not yet",
     initialValue: false,
+    withGuide: false,
   });
 
   return !isCancel(result) && result === true;

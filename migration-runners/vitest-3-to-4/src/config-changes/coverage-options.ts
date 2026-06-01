@@ -42,8 +42,10 @@ function coverageOptionsReviewBlocker(filePath: string) {
 
   if (/\bcoverage\s*:\s*{/.test(source) && !/\binclude\s*:/.test(source)) {
     return {
+      kind: "manual-confirmation" as const,
       reason:
         "coverage.include is not defined; Vitest 4 reports only loaded files unless include is configured.",
+      prompt: "Confirm coverage.include is intentionally omitted, or add it before continuing.",
     };
   }
 

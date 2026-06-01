@@ -116,13 +116,75 @@ describe("configChangesTask", () => {
     );
 
     expect(requestManualConfirmationMock).toHaveBeenCalledWith(
-      "Confirm restoreMocks cleanup expectations were reviewed.",
+      "/project/vitest.config.ts: Confirm restoreMocks cleanup expectations were reviewed.",
     );
     expect(messages).toEqual([
       "  → Verify restoreMocks cleanup",
       "    ! Needs confirmation",
       "      restoreMocks now follows vi.restoreAllMocks behavior and no longer resets spy state.",
       "    ✓ Confirmed",
+    ]);
+  });
+
+  it("confirms manual-confirmation blockers before watching remaining manual fixes", async () => {
+    const messages: string[] = [];
+    const logUpdate = createTestLogUpdate(messages);
+    const cwd = createProject({ "vitest.config.ts": "coverage.all = true; restoreMocks: true" });
+
+    requestManualConfirmationMock.mockResolvedValueOnce(true);
+    process.chdir(cwd);
+    const configPath = join(process.cwd(), "vitest.config.ts");
+
+    setTimeout(() => {
+      writeFileSync(configPath, "coverage.include = ['src/**']; restoreMocks: true");
+    }, 50);
+
+    await configChangesTask(
+      logUpdate,
+      [
+        {
+          title: "Review mixed config findings",
+          policy: "blocking",
+          shouldBlock: () => {
+            const source = readFileSync(configPath, "utf8");
+            const findings = [];
+
+            if (source.includes("coverage.all")) {
+              findings.push({
+                kind: "manual-fix" as const,
+                reason: "Replace coverage.all with coverage.include",
+              });
+            }
+
+            if (source.includes("restoreMocks")) {
+              findings.push({
+                kind: "manual-confirmation" as const,
+                reason: "Verify restoreMocks cleanup expectations.",
+                prompt: "Confirm restoreMocks cleanup expectations were reviewed.",
+              });
+            }
+
+            return findings.length > 0 ? findings : false;
+          },
+        },
+      ],
+      configPath,
+    );
+
+    expect(requestManualConfirmationMock).toHaveBeenCalledTimes(1);
+    expect(requestManualConfirmationMock).toHaveBeenCalledWith(
+      "vitest.config.ts: Confirm restoreMocks cleanup expectations were reviewed.",
+    );
+    expect(messages).toEqual([
+      "  → Review mixed config findings",
+      "    ✗ Blocked",
+      "      Replace coverage.all with coverage.include",
+      "    ! Needs confirmation",
+      "      Verify restoreMocks cleanup expectations.",
+      "    ✓ Confirmed",
+      "      → Waiting for changes under cwd...",
+      "    → Rechecking after file change",
+      "    ✓ Not blocked",
     ]);
   });
 

@@ -1,5 +1,5 @@
 import type { createLogUpdate } from "log-update";
-import { relative } from "node:path";
+import { isAbsolute, relative } from "node:path";
 import { glob } from "tinyglobby";
 import type { ApiChange, BlockFinding, TransformResult, Transformer } from "../types.js";
 import { requestManualConfirmation } from "../utils/manual-confirmation.js";
@@ -55,7 +55,13 @@ type Summary = {
   needsReview: Array<{ filePath: string; reason: string }>;
   failed: Array<{ filePath: string; reason: string }>;
   manualFixes: Array<{ filePath: string; reason: string }>;
-  manualConfirmations: Array<{ filePath: string; reason: string; prompt?: string }>;
+  manualConfirmations: ManualConfirmationResult[];
+};
+
+type ManualConfirmationResult = {
+  filePath: string;
+  reason: string;
+  prompt?: string;
 };
 
 type NormalizedBlockFinding =
@@ -64,7 +70,7 @@ type NormalizedBlockFinding =
 
 type BlockCheckStatus =
   | { status: "passed" }
-  | { status: "blocked"; finding: NormalizedBlockFinding }
+  | { status: "blocked"; findings: NormalizedBlockFinding[] }
   | { status: "failed"; reason: string };
 
 async function findFiles(patterns: string[]) {
@@ -99,9 +105,10 @@ async function waitForApiBlockCheck(
   }
 
   const policy = check.policy ?? "blocking";
+  const confirmedManualConfirmations = new Set<string>();
 
   while (true) {
-    const summary = await collectBlockSummary(check);
+    const summary = await collectBlockSummary(check, confirmedManualConfirmations);
 
     logBlockSummary(logUpdate, summary, policy);
 
@@ -113,22 +120,23 @@ async function waitForApiBlockCheck(
       return false;
     }
 
-    if (summary.manualFixes.length === 0 && summary.manualConfirmations.length === 0) {
-      return false;
-    }
-
-    if (summary.manualConfirmations.length > 0 && summary.manualFixes.length === 0) {
+    for (const confirmation of summary.manualConfirmations) {
       const confirmed = await requestManualConfirmation(
-        createManualConfirmationPrompt(check.title, summary.manualConfirmations),
+        createManualConfirmationPrompt(check.title, confirmation),
       );
 
       if (confirmed) {
+        confirmedManualConfirmations.add(createManualConfirmationKey(confirmation));
         logUpdate.persist(logStyle.success("Confirmed", 2));
-        return false;
+        continue;
       }
 
       logUpdate.persist(logStyle.error("Confirmation declined", 2));
       return true;
+    }
+
+    if (summary.manualFixes.length === 0) {
+      return false;
     }
 
     logUpdate.persist(logStyle.info("Waiting for changes under cwd...", 3));
@@ -137,7 +145,10 @@ async function waitForApiBlockCheck(
   }
 }
 
-async function collectBlockSummary(check: ApiChange): Promise<Summary> {
+async function collectBlockSummary(
+  check: ApiChange,
+  confirmedManualConfirmations: ReadonlySet<string>,
+): Promise<Summary> {
   const summary = createSummary();
 
   if (!check.shouldBlock) {
@@ -151,15 +162,24 @@ async function collectBlockSummary(check: ApiChange): Promise<Summary> {
 
     if (result.status === "failed") {
       summary.failed.push({ filePath, reason: `Block check failed: ${result.reason}` });
-    } else if (result.status === "blocked") {
-      if (result.finding.kind === "manual-confirmation") {
-        summary.manualConfirmations.push({
-          filePath,
-          reason: result.finding.reason,
-          ...(result.finding.prompt ? { prompt: result.finding.prompt } : {}),
-        });
-      } else {
-        summary.manualFixes.push({ filePath, reason: result.finding.reason });
+      continue;
+    }
+
+    if (result.status === "blocked") {
+      for (const finding of result.findings) {
+        if (finding.kind === "manual-confirmation") {
+          const confirmation = {
+            filePath,
+            reason: finding.reason,
+            ...(finding.prompt ? { prompt: finding.prompt } : {}),
+          };
+
+          if (!confirmedManualConfirmations.has(createManualConfirmationKey(confirmation))) {
+            summary.manualConfirmations.push(confirmation);
+          }
+        } else {
+          summary.manualFixes.push({ filePath, reason: finding.reason });
+        }
       }
     }
   }
@@ -181,13 +201,18 @@ function runBlockCheck(
 ): BlockCheckStatus {
   try {
     const result = shouldBlock(filePath);
+    const findings = result ? normalizeBlockFindings(result) : [];
 
-    return result
-      ? { status: "blocked", finding: normalizeBlockFinding(result) }
-      : { status: "passed" };
+    return findings.length > 0 ? { status: "blocked", findings } : { status: "passed" };
   } catch (error) {
     return { status: "failed", reason: formatError(error) };
   }
+}
+
+function normalizeBlockFindings(finding: BlockFinding | BlockFinding[]): NormalizedBlockFinding[] {
+  const findings = Array.isArray(finding) ? finding : [finding];
+
+  return findings.map(normalizeBlockFinding);
 }
 
 function normalizeBlockFinding(finding: BlockFinding): NormalizedBlockFinding {
@@ -319,15 +344,35 @@ function formatFileResult(filePath: string, reason: string) {
   return `${logStyle.path(relative(process.cwd(), filePath) || filePath)}: ${reason}`;
 }
 
-function createManualConfirmationPrompt(
-  title: string,
-  confirmations: Array<{ filePath: string; reason: string; prompt?: string }>,
-) {
-  if (confirmations.length === 1 && confirmations[0]?.prompt) {
-    return confirmations[0].prompt;
+function createManualConfirmationPrompt(title: string, confirmation: ManualConfirmationResult) {
+  const filePath = formatPlainPath(confirmation.filePath);
+
+  if (confirmation.prompt) {
+    return `${filePath}: ${confirmation.prompt}`;
   }
 
-  return `Confirm you manually verified "${title}" findings before continuing.`;
+  return `Confirm you manually verified "${title}" for ${formatPlainFileResult(
+    confirmation.filePath,
+    confirmation.reason,
+  )} before continuing.`;
+}
+
+function createManualConfirmationKey(confirmation: ManualConfirmationResult) {
+  return `${confirmation.filePath}\0${confirmation.reason}\0${confirmation.prompt ?? ""}`;
+}
+
+function formatPlainFileResult(filePath: string, reason: string) {
+  return `${formatPlainPath(filePath)}: ${reason}`;
+}
+
+function formatPlainPath(filePath: string) {
+  const relativePath = relative(process.cwd(), filePath);
+
+  if (!relativePath || relativePath.startsWith("..") || isAbsolute(relativePath)) {
+    return filePath;
+  }
+
+  return relativePath;
 }
 
 function formatError(error: unknown) {

@@ -4,6 +4,7 @@ import type { ConfigChange } from "migration-kit";
 type DeprecatedConfigFinding = {
   kind: "manual-fix" | "manual-confirmation";
   reason: string;
+  prompt?: string;
 };
 
 const deprecatedConfigChange: ConfigChange = {
@@ -11,28 +12,14 @@ const deprecatedConfigChange: ConfigChange = {
   description:
     "Blocks config options and behavior changes removed in Vitest 4 that cannot be migrated safely without project context.",
   policy: "blocking",
-  shouldBlock: deprecatedConfigReviewBlocker,
+  shouldBlock: deprecatedConfigReviewBlocker as NonNullable<ConfigChange["shouldBlock"]>,
 };
 
 function deprecatedConfigReviewBlocker(filePath: string) {
   const source = readFileSync(filePath, "utf8");
   const findings = collectDeprecatedConfigFindings(source);
 
-  if (findings.length === 0) {
-    return false;
-  }
-
-  const reason = findings.map((finding) => finding.reason).join(" ");
-
-  if (findings.every((finding) => finding.kind === "manual-confirmation")) {
-    return {
-      kind: "manual-confirmation",
-      reason,
-      prompt: "Confirm Vitest 4 mock cleanup behavior was manually verified before continuing.",
-    };
-  }
-
-  return { reason };
+  return toBlockResult(findings);
 }
 
 function collectDeprecatedConfigFindings(source: string): DeprecatedConfigFinding[] {
@@ -69,8 +56,20 @@ function addManualConfirmationIf(
   reason: string,
 ) {
   if (condition) {
-    findings.push({ kind: "manual-confirmation", reason });
+    findings.push({
+      kind: "manual-confirmation",
+      reason,
+      prompt: "Confirm Vitest 4 mock cleanup behavior was manually verified before continuing.",
+    });
   }
 }
 
-export { collectDeprecatedConfigFindings, deprecatedConfigChange };
+function toBlockResult(findings: DeprecatedConfigFinding[]) {
+  if (findings.length === 0) {
+    return false;
+  }
+
+  return findings.length === 1 ? findings[0] : findings;
+}
+
+export { collectDeprecatedConfigFindings, deprecatedConfigChange, deprecatedConfigReviewBlocker };

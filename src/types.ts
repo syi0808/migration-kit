@@ -74,7 +74,7 @@ export type ManualConfirmationBlock = {
 };
 
 export type BlockFinding = ManualFixBlock | ManualConfirmationBlock;
-export type BlockCheckResult = false | BlockFinding;
+export type BlockCheckResult = false | BlockFinding | BlockFinding[];
 
 export interface ConfigChange {
   title: string;

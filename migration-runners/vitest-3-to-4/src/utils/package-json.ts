@@ -47,24 +47,41 @@ function addPackageRangeReason(
   packageName: string,
   requiredRange: string,
 ) {
+  const finding = getPackageRangeReviewFinding(dependencies, packageName, requiredRange);
+
+  if (finding) {
+    reasons.push(finding.reason);
+  }
+}
+
+function getPackageRangeReviewFinding(
+  dependencies: Record<string, unknown>,
+  packageName: string,
+  requiredRange: string,
+): { kind: "manual-fix" | "manual-confirmation"; reason: string } | null {
   const currentRange = dependencies[packageName];
 
   if (typeof currentRange !== "string" || !currentRange) {
-    return;
+    return null;
   }
 
   const normalizedRange = normalizeDependencyRange(currentRange);
 
   if (!normalizedRange) {
-    reasons.push(`${packageName} uses ${currentRange}, which could not be verified automatically.`);
-    return;
+    return {
+      kind: "manual-confirmation",
+      reason: `${packageName} uses ${currentRange}, which could not be verified automatically.`,
+    };
   }
 
   if (!semver.subset(normalizedRange, requiredRange, { includePrerelease: true })) {
-    reasons.push(
-      `${packageName} should satisfy ${requiredRange}; current range is ${currentRange}.`,
-    );
+    return {
+      kind: "manual-fix",
+      reason: `${packageName} should satisfy ${requiredRange}; current range is ${currentRange}.`,
+    };
   }
+
+  return null;
 }
 
 function dependencyRangeSatisfies(range: string, requiredRange: string): boolean {
@@ -119,6 +136,7 @@ function detectJsonIndent(source: string): string | number {
 export {
   addPackageRangeReason,
   dependencyFields,
+  getPackageRangeReviewFinding,
   readStringRecord,
   stringifyPackageJson,
   updateDependencyRange,

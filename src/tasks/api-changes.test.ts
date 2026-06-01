@@ -144,13 +144,115 @@ describe("apiChangesTask", () => {
     ]);
 
     expect(requestManualConfirmationMock).toHaveBeenCalledWith(
-      "Confirm mock cleanup expectations were reviewed.",
+      "src/a.ts: Confirm mock cleanup expectations were reviewed.",
     );
     expect(messages).toEqual([
       "  → Verify mock cleanup",
       "    ! 1 needs confirmation",
       "      src/a.ts: vi.restoreAllMocks no longer resets spy state or automocks; verify mock cleanup expectations.",
       "    ✓ Confirmed",
+    ]);
+  });
+
+  it("prompts each manual-confirmation blocker separately", async () => {
+    const messages: string[] = [];
+    const logUpdate = createTestLogUpdate(messages);
+    const cwd = createProject({ "src/a.ts": "vi.restoreAllMocks(); viteNodeUsage();" });
+
+    requestManualConfirmationMock.mockResolvedValueOnce(true).mockResolvedValueOnce(true);
+    process.chdir(cwd);
+
+    await apiChangesTask(logUpdate, [
+      {
+        title: "Verify review-only findings",
+        policy: "blocking",
+        files: ["src/**/*.ts"],
+        shouldBlock: () => [
+          {
+            kind: "manual-confirmation",
+            reason: "Verify mock cleanup expectations.",
+            prompt: "Confirm mock cleanup expectations were reviewed.",
+          },
+          {
+            kind: "manual-confirmation",
+            reason: "Verify vite-node direct usage.",
+            prompt: "Confirm vite-node usage was reviewed.",
+          },
+        ],
+      },
+    ]);
+
+    expect(requestManualConfirmationMock).toHaveBeenNthCalledWith(
+      1,
+      "src/a.ts: Confirm mock cleanup expectations were reviewed.",
+    );
+    expect(requestManualConfirmationMock).toHaveBeenNthCalledWith(
+      2,
+      "src/a.ts: Confirm vite-node usage was reviewed.",
+    );
+    expect(messages).toEqual([
+      "  → Verify review-only findings",
+      "    ! 2 need confirmation",
+      "      src/a.ts: Verify mock cleanup expectations.",
+      "      src/a.ts: Verify vite-node direct usage.",
+      "    ✓ Confirmed",
+      "    ✓ Confirmed",
+    ]);
+  });
+
+  it("confirms manual-confirmation blockers before watching remaining manual fixes", async () => {
+    const messages: string[] = [];
+    const logUpdate = createTestLogUpdate(messages);
+    const cwd = createProject({ "src/a.ts": "oldApi(); vi.restoreAllMocks();" });
+
+    requestManualConfirmationMock.mockResolvedValueOnce(true);
+    process.chdir(cwd);
+    const sourcePath = join(process.cwd(), "src/a.ts");
+
+    setTimeout(() => {
+      writeFileSync(sourcePath, "newApi(); vi.restoreAllMocks();");
+    }, 50);
+
+    await apiChangesTask(logUpdate, [
+      {
+        title: "Review mixed API findings",
+        policy: "blocking",
+        files: ["src/**/*.ts"],
+        shouldBlock: (filePath) => {
+          const source = readFileSync(filePath, "utf8");
+          const findings = [];
+
+          if (source.includes("oldApi")) {
+            findings.push({ kind: "manual-fix" as const, reason: "Replace oldApi with newApi" });
+          }
+
+          if (source.includes("vi.restoreAllMocks")) {
+            findings.push({
+              kind: "manual-confirmation" as const,
+              reason: "Verify mock cleanup expectations.",
+              prompt: "Confirm mock cleanup expectations were reviewed.",
+            });
+          }
+
+          return findings.length > 0 ? findings : false;
+        },
+      },
+    ]);
+
+    expect(requestManualConfirmationMock).toHaveBeenCalledTimes(1);
+    expect(requestManualConfirmationMock).toHaveBeenCalledWith(
+      "src/a.ts: Confirm mock cleanup expectations were reviewed.",
+    );
+    expect(messages).toEqual([
+      "  → Review mixed API findings",
+      "    ✗ 1 blocked",
+      "      src/a.ts: Replace oldApi with newApi",
+      "    ! 1 needs confirmation",
+      "      src/a.ts: Verify mock cleanup expectations.",
+      "    ✓ Confirmed",
+      "      → Waiting for changes under cwd...",
+      "    → Rechecking after file change",
+      "    ✓ Not blocked",
     ]);
   });
 
