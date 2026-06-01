@@ -1,0 +1,4 @@
+#!/bin/sh
+printf '%s\n' 'fake pnpm install for vitest-v3-mixed fixture'
+exit 0
+
