@@ -152,6 +152,8 @@ transformer.astGrep({
 });
 ```
 
+During `createMigrationRunner().run()`, built-in transformers use a runner-scoped file cache. Read-only blockers can use `readMigrationFileSync(filePath)` and `parseJscodeshiftSourceForScan(filePath, source)` to participate in that cache without changing the `transform(filePath)` or `shouldBlock(filePath)` API shape.
+
 ## License
 
 This package is licensed under MIT as declared in [`package.json`](package.json).

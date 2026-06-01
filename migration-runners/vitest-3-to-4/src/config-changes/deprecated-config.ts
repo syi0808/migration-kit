@@ -1,5 +1,4 @@
-import { readFileSync } from "node:fs";
-import type { ConfigChange } from "migration-kit";
+import { readMigrationFileSync, type ConfigChange } from "migration-kit";
 
 type DeprecatedConfigFinding = {
   kind: "manual-fix" | "manual-confirmation";
@@ -16,7 +15,7 @@ const deprecatedConfigChange: ConfigChange = {
 };
 
 function deprecatedConfigReviewBlocker(filePath: string) {
-  const source = readFileSync(filePath, "utf8");
+  const source = readMigrationFileSync(filePath);
   const findings = collectDeprecatedConfigFindings(source);
 
   return toBlockResult(findings);

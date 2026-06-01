@@ -1,5 +1,4 @@
-import { readFileSync } from "node:fs";
-import { transformer } from "migration-kit";
+import { readMigrationFileSync, transformer } from "migration-kit";
 import type { ConfigChange, JscodeshiftCore } from "migration-kit";
 import {
   ensureObjectProperty,
@@ -95,7 +94,7 @@ function moveServerDeps(j: JscodeshiftCore, path: NodePath) {
 }
 
 function moduleRunnerConfigReviewBlocker(filePath: string) {
-  const source = readFileSync(filePath, "utf8");
+  const source = readMigrationFileSync(filePath);
 
   if (!hasLegacyServerDepOptions(filePath, source)) {
     return false;

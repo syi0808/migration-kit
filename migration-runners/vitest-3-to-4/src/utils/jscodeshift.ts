@@ -1,14 +1,9 @@
-import { createRequire } from "node:module";
-import { extname } from "node:path";
-import type { JscodeshiftCore } from "migration-kit";
-import type { JscodeshiftParser } from "migration-kit";
+import { parseJscodeshiftSourceForScan, type JscodeshiftCore } from "migration-kit";
 
 type NodePath = {
   node: any;
   parent?: NodePath | null;
 };
-
-const require = createRequire(import.meta.url);
 
 function getObjectPropertyName(node: any): string | null {
   if (!node || node.type !== "ObjectProperty") {
@@ -160,29 +155,7 @@ function isStringLiteral(node: any): boolean {
 }
 
 function parseSource(filePath: string, source: string) {
-  const j = loadJscodeshift().withParser(inferParser(filePath));
-
-  return { j, root: j(source) };
-}
-
-function inferParser(filePath: string): JscodeshiftParser {
-  const extension = extname(filePath);
-
-  if (extension === ".ts" || extension === ".mts" || extension === ".cts") {
-    return "ts";
-  }
-
-  if (extension === ".tsx") {
-    return "tsx";
-  }
-
-  return "babel";
-}
-
-function loadJscodeshift(): JscodeshiftCore {
-  const module = require("jscodeshift") as JscodeshiftCore | { default: JscodeshiftCore };
-
-  return "default" in module ? module.default : module;
+  return parseJscodeshiftSourceForScan(filePath, source);
 }
 
 export {

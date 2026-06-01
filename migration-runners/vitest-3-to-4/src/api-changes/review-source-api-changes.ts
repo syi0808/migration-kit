@@ -1,5 +1,4 @@
-import { readFileSync } from "node:fs";
-import type { ApiChange } from "migration-kit";
+import { readMigrationFileSync, type ApiChange } from "migration-kit";
 import { sourceFilePatterns } from "../patterns.js";
 import { parseSource } from "../utils/jscodeshift.js";
 
@@ -19,7 +18,7 @@ const reviewSourceApiChanges: ApiChange = {
 };
 
 function sourceReviewBlocker(filePath: string) {
-  const findings = collectSourceReviewFindings(readFileSync(filePath, "utf8"));
+  const findings = collectSourceReviewFindings(readMigrationFileSync(filePath), filePath);
 
   return toBlockResult(findings);
 }
@@ -28,7 +27,10 @@ function collectSourceReviewReasons(source: string): string[] {
   return collectSourceReviewFindings(source).map((finding) => finding.reason);
 }
 
-function collectSourceReviewFindings(source: string): SourceReviewFinding[] {
+function collectSourceReviewFindings(
+  source: string,
+  filePath = "source.tsx",
+): SourceReviewFinding[] {
   const findings: SourceReviewFinding[] = [];
 
   addManualFixIf(
@@ -56,7 +58,7 @@ function collectSourceReviewFindings(source: string): SourceReviewFinding[] {
     /\bvi\.restoreAllMocks\s*\(/.test(source),
     "vi.restoreAllMocks no longer resets spy state or automocks; verify mock cleanup expectations.",
   );
-  const unsafeMockFactoryReferences = collectUnsafeViMockFactoryReferences(source);
+  const unsafeMockFactoryReferences = collectUnsafeViMockFactoryReferences(source, filePath);
 
   addManualFixIf(
     findings,
@@ -223,11 +225,11 @@ function hasBadMockVariableImplementation(source: string, variableName: string):
   return badVariableImplementationRegex.test(source);
 }
 
-function collectUnsafeViMockFactoryReferences(source: string): string[] {
+function collectUnsafeViMockFactoryReferences(source: string, filePath = "source.tsx"): string[] {
   let program: any | null = null;
 
   try {
-    const { j, root } = parseSource("source.tsx", source);
+    const { j, root } = parseSource(filePath, source);
 
     root.find(j.Program).forEach((path: any) => {
       program ??= path.node;

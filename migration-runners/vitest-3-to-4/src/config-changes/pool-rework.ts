@@ -1,5 +1,4 @@
-import { readFileSync } from "node:fs";
-import { transformer } from "migration-kit";
+import { readMigrationFileSync, transformer } from "migration-kit";
 import type { ConfigChange, JscodeshiftCore } from "migration-kit";
 import {
   findObjectProperty,
@@ -231,7 +230,7 @@ function isBooleanValue(node: any, value: boolean) {
 }
 
 function poolReworkReviewBlocker(filePath: string) {
-  const source = readFileSync(filePath, "utf8");
+  const source = readMigrationFileSync(filePath);
   const reasons: string[] = [];
 
   addIf(

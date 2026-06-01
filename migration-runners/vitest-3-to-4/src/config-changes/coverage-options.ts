@@ -1,5 +1,4 @@
-import { readFileSync } from "node:fs";
-import { transformer } from "migration-kit";
+import { readMigrationFileSync, transformer } from "migration-kit";
 import type { ConfigChange } from "migration-kit";
 import {
   getObjectPropertyName,
@@ -38,7 +37,7 @@ function createCoverageOptionsTransform() {
 }
 
 function coverageOptionsReviewBlocker(filePath: string) {
-  const source = readFileSync(filePath, "utf8");
+  const source = readMigrationFileSync(filePath);
 
   if (/\bcoverage\s*:\s*{/.test(source) && !/\binclude\s*:/.test(source)) {
     return {

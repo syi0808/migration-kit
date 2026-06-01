@@ -1,5 +1,4 @@
-import { readFileSync } from "node:fs";
-import { transformer } from "migration-kit";
+import { readMigrationFileSync, transformer } from "migration-kit";
 import type { ConfigChange } from "migration-kit";
 import {
   getObjectPropertyName,
@@ -42,7 +41,7 @@ function createWorkspaceProjectsTransform() {
 }
 
 function workspaceProjectsReviewBlocker(filePath: string) {
-  const source = readFileSync(filePath, "utf8");
+  const source = readMigrationFileSync(filePath);
 
   if (/\bworkspace\s*:\s*['"][^'"]*vitest\.workspace\.[^'"]*['"]/.test(source)) {
     return {

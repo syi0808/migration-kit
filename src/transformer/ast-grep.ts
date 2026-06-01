@@ -1,6 +1,6 @@
-import { readFile, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import type { Transformer } from "../types.js";
+import { readMigrationFile, writeMigrationFile } from "../migration-runtime.js";
 
 const require = createRequire(import.meta.url);
 
@@ -50,7 +50,7 @@ function astGrep(
 
   return async (filePath) => {
     try {
-      const source = await readFile(filePath, "utf8");
+      const source = await readMigrationFile(filePath);
       const matches = findMatches(filePath, source, astGrepOptions);
 
       if (matches.length === 0) {
@@ -71,7 +71,7 @@ function astGrep(
         return { status: "unchanged", filePath };
       }
 
-      await writeFile(filePath, output);
+      await writeMigrationFile(filePath, output);
 
       return { status: "updated", filePath };
     } catch (error) {

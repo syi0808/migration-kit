@@ -1,5 +1,4 @@
-import { readFileSync } from "node:fs";
-import type { ApiChange } from "migration-kit";
+import { readMigrationFileSync, type ApiChange } from "migration-kit";
 import {
   dependencyFields,
   getPackageRangeReviewFinding,
@@ -23,7 +22,7 @@ const reviewDependencyPackageChanges: ApiChange = {
 };
 
 function packageJsonReviewBlocker(filePath: string) {
-  const source = readFileSync(filePath, "utf8");
+  const source = readMigrationFileSync(filePath);
 
   try {
     return toBlockResult(collectPackageJsonReviewFindings(JSON.parse(source) as JsonObject));

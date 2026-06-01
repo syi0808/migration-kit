@@ -1,7 +1,11 @@
-import { readFile, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { extname } from "node:path";
 import type { Transformer } from "../types.js";
+import {
+  getMigrationArtifact,
+  readMigrationFile,
+  writeMigrationFile,
+} from "../migration-runtime.js";
 
 const require = createRequire(import.meta.url);
 
@@ -45,13 +49,22 @@ export type JscodeshiftTransform = (
   options: Record<string, unknown>,
 ) => Promise<string | null | undefined | void> | string | null | undefined | void;
 
+export interface JscodeshiftParseOptions {
+  parser?: JscodeshiftParser;
+}
+
+export type JscodeshiftParseResult = {
+  j: JscodeshiftCore;
+  root: ReturnType<JscodeshiftCore>;
+};
+
 function jscodeshift(
   transform: JscodeshiftTransform,
   options: JscodeshiftOptions = {},
 ): Transformer {
   return async (filePath) => {
     try {
-      const source = await readFile(filePath, "utf8");
+      const source = await readMigrationFile(filePath);
       const api = createJscodeshiftApi(filePath, options);
       const output = await transform(
         { path: filePath, source },
@@ -63,13 +76,26 @@ function jscodeshift(
         return { status: "unchanged", filePath };
       }
 
-      await writeFile(filePath, output);
+      await writeMigrationFile(filePath, output);
 
       return { status: "updated", filePath };
     } catch (error) {
       return { status: "failed", filePath, reason: getErrorMessage(error) };
     }
   };
+}
+
+function parseJscodeshiftSourceForScan(
+  filePath: string,
+  source: string,
+  options: JscodeshiftParseOptions = {},
+): JscodeshiftParseResult {
+  const parser = options.parser ?? inferParser(filePath);
+  const j = loadJscodeshift().withParser(parser);
+  const cacheKey = `jscodeshift:${getParserCacheKey(parser)}`;
+  const root = getMigrationArtifact(filePath, cacheKey, source, () => j(source));
+
+  return { j, root };
 }
 
 function createJscodeshiftApi(filePath: string, options: JscodeshiftOptions): JscodeshiftApi {
@@ -107,8 +133,29 @@ function loadJscodeshift(): JscodeshiftCore {
   return "default" in module ? module.default : module;
 }
 
+const parserObjectIds = new WeakMap<object, number>();
+let nextParserObjectId = 1;
+
+function getParserCacheKey(parser: JscodeshiftParser): string {
+  if (typeof parser === "string") {
+    return parser;
+  }
+
+  const cached = parserObjectIds.get(parser);
+
+  if (cached) {
+    return `custom:${cached}`;
+  }
+
+  const id = nextParserObjectId;
+  nextParserObjectId += 1;
+  parserObjectIds.set(parser, id);
+
+  return `custom:${id}`;
+}
+
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-export { jscodeshift };
+export { jscodeshift, parseJscodeshiftSourceForScan };

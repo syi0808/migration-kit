@@ -1,5 +1,4 @@
-import { readFileSync } from "node:fs";
-import { transformer } from "migration-kit";
+import { readMigrationFileSync, transformer } from "migration-kit";
 import type { ConfigChange, JscodeshiftCore } from "migration-kit";
 import {
   findObjectProperty,
@@ -78,7 +77,7 @@ function moveBrowserNameToInstances(j: JscodeshiftCore, browserObject: any) {
 }
 
 function browserProviderReviewBlocker(filePath: string) {
-  const source = readFileSync(filePath, "utf8");
+  const source = readMigrationFileSync(filePath);
 
   if (hasBrowserProviderFindings(filePath, source)) {
     return {
