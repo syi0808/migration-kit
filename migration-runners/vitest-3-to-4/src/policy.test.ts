@@ -27,6 +27,20 @@ describe("Vitest 3 to 4 migration policies", () => {
     expect(change.transform).toEqual(expect.any(Function));
   });
 
+  it("does not block source API changes with safe codemods", () => {
+    for (const title of [
+      "Update @vitest/browser utils imports",
+      "Update custom environment transform mode",
+      "Update removed Vitest type imports",
+    ]) {
+      const change = findChange(apiChanges, title);
+
+      expect(change.policy).toBeUndefined();
+      expect(change.shouldBlock).toBeUndefined();
+      expect(change.transform).toEqual(expect.any(Function));
+    }
+  });
+
   it("blocks removed API and unresolved package findings that need user action", () => {
     for (const title of [
       "Review Vitest dependency package changes",

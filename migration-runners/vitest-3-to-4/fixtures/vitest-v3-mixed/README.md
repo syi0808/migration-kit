@@ -29,6 +29,6 @@ The runner should:
 3. Ask for manual confirmation for `restoreMocks`.
 4. Ask for manual confirmation for direct `vite-node` usage.
 5. Rename legacy Vitest environment variables.
-6. Rewrite browser context imports, test option argument order, and coverage ignore comments.
-7. Stop on source review blockers in `src/mixed-api.fixture.ts`, `test/custom-environment.ts`, and
-   `vitest.setup.ts`.
+6. Rewrite browser context/utils imports, test option argument order, coverage ignore comments,
+   custom environment transform mode, and removed type imports.
+7. Stop on source review blockers in `src/mixed-api.fixture.ts` and `vitest.setup.ts`.

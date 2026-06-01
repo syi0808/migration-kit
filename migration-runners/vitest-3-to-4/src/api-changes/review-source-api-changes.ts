@@ -11,7 +11,7 @@ type SourceReviewFinding = {
 const reviewSourceApiChanges: ApiChange = {
   title: "Review Vitest 4 source API changes",
   description:
-    "Flags browser utility imports, removed internal APIs, custom environments, reporter APIs, constructor global mocks, vi.mock factory hoisting risks, restoreAllMocks, and deprecated types.",
+    "Flags source API changes that still need review after safe Vitest 4 source codemods run.",
   policy: "blocking",
   files: sourceFilePatterns,
   shouldBlock: sourceReviewBlocker as NonNullable<ApiChange["shouldBlock"]>,
