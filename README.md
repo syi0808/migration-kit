@@ -48,7 +48,7 @@ const migrationRunner = createMigrationRunner({
     {
       title: "Review removed config option",
       description: "legacyMode was removed in 2.x.",
-      policy: "advisory",
+      policy: "blocking",
       shouldBlock: (filePath) => {
         const source = readFileSync(filePath, "utf8");
 
@@ -105,7 +105,7 @@ The options object supports:
 - `configChanges` for config transforms and blockers
 - `apiChanges` for glob-based source transforms and blockers
 
-Block checks default to `policy: "blocking"`. A blocking check waits for project file changes and rechecks until the finding is resolved. Use `policy: "advisory"` when the runner should report the finding and continue.
+Block checks default to `policy: "blocking"`. A blocking check waits for project file changes and rechecks until the finding is resolved. Use blocking checks for removed or moved options, deleted APIs, and behavior changes that can break the migrated project until a codemod or user edit resolves the finding. Use `policy: "advisory"` only when the runner should report an informational or deprecated-but-still-working finding and continue.
 
 Each `packageVersionUpdates` entry defaults to the runner-level `from` and `to` values. Set entry-level `from` or `to` when the package range should be more specific than the displayed migration versions. Wildcard targets such as `4.x`, `4`, or `4.1.x` are resolved to the latest matching published package version before `package.json` is written.
 

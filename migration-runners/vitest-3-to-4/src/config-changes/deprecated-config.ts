@@ -2,10 +2,10 @@ import { readFileSync } from "node:fs";
 import type { ConfigChange } from "migration-kit";
 
 const deprecatedConfigChange: ConfigChange = {
-  title: "Review removed deprecated config options",
+  title: "Review removed Vitest 4 config options",
   description:
-    "Flags config options removed in Vitest 4 that cannot be migrated safely without project context.",
-  policy: "advisory",
+    "Blocks config options and behavior changes removed in Vitest 4 that cannot be migrated safely without project context.",
+  policy: "blocking",
   shouldBlock: deprecatedConfigReviewBlocker,
 };
 

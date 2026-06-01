@@ -13,7 +13,7 @@ const workspaceProjectsChange: ConfigChange = {
   title: "Replace workspace config with projects",
   description:
     "Renames inline test.workspace project definitions to test.projects and flags workspace files that must be merged into the main config.",
-  policy: "advisory",
+  policy: "blocking",
   transform: createWorkspaceProjectsTransform(),
   shouldBlock: workspaceProjectsReviewBlocker,
 };

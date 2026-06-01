@@ -11,7 +11,7 @@ const coverageOptionsChange: ConfigChange = {
   title: "Update Vitest 4 coverage options",
   description:
     "Removes coverage.all, coverage.extensions, coverage.ignoreEmptyLines, and coverage.experimentalAstAwareRemapping. Flags coverage configs that still need an explicit include pattern.",
-  policy: "advisory",
+  policy: "blocking",
   transform: createCoverageOptionsTransform(),
   shouldBlock: coverageOptionsReviewBlocker,
 };

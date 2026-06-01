@@ -12,7 +12,6 @@ const reporterUpdatesChange: ConfigChange = {
   title: "Update Vitest 4 reporter config",
   description:
     "Rewrites the removed basic reporter to the equivalent default reporter with summary disabled.",
-  policy: "advisory",
   transform: createReporterUpdatesTransform(),
 };
 

@@ -12,7 +12,7 @@ const reviewDependencyPackageChanges: ApiChange = {
   title: "Review Vitest dependency package changes",
   description:
     "Flags removed packages and package ranges that could not be verified automatically.",
-  policy: "advisory",
+  policy: "blocking",
   files: ["package.json"],
   shouldBlock: packageJsonReviewBlocker,
 };

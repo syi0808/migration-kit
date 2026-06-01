@@ -1,18 +1,25 @@
 import { readFileSync } from "node:fs";
 import { transformer } from "migration-kit";
-import type { ConfigChange } from "migration-kit";
+import type { ConfigChange, JscodeshiftCore } from "migration-kit";
 import {
+  ensureObjectProperty,
+  findObjectProperty,
   getObjectPropertyName,
+  isObjectExpression,
   isUnderPropertyChain,
+  parseSource,
+  removeObjectProperty,
   setObjectPropertyName,
   type NodePath,
 } from "../utils/jscodeshift.js";
 
+const movedServerDepOptions = new Set(["external", "inline", "fallbackCJS"]);
+
 const moduleRunnerConfigChange: ConfigChange = {
   title: "Update Module Runner config",
   description:
-    "Renames deps.optimizer.web to deps.optimizer.client and flags old dependency externalization options.",
-  policy: "advisory",
+    "Renames deps.optimizer.web to deps.optimizer.client and moves dependency externalization options under server.deps.",
+  policy: "blocking",
   transform: createModuleRunnerConfigTransform(),
   shouldBlock: moduleRunnerConfigReviewBlocker,
 };
@@ -26,31 +33,94 @@ function createModuleRunnerConfigTransform() {
     root.find(j.ObjectProperty).forEach((path: NodePath) => {
       const propertyName = getObjectPropertyName(path.node);
 
-      if (propertyName !== "web" || !isUnderPropertyChain(path, ["optimizer", "deps", "test"])) {
+      if (propertyName === "web" && isUnderPropertyChain(path, ["optimizer", "deps", "test"])) {
+        setObjectPropertyName(j, path.node, "client");
+        changed = true;
         return;
       }
 
-      setObjectPropertyName(j, path.node, "client");
-      changed = true;
+      if (propertyName === "deps" && isUnderPropertyChain(path, ["test"])) {
+        changed = moveServerDeps(j, path) || changed;
+      }
     });
 
     return changed ? root.toSource({ quote: "single" }) : fileInfo.source;
   });
 }
 
-function moduleRunnerConfigReviewBlocker(filePath: string) {
-  const source = readFileSync(filePath, "utf8");
-  const reasons: string[] = [];
+function moveServerDeps(j: JscodeshiftCore, path: NodePath) {
+  const depsObject = path.node.value;
+  const testObject = path.parent?.node;
 
-  if (/\bdeps\s*:\s*{[\s\S]*?\b(external|inline|fallbackCJS)\s*:/.test(source)) {
-    reasons.push("deps.external/deps.inline/deps.fallbackCJS moved under server.deps.");
-  }
-
-  if (reasons.length === 0) {
+  if (!isObjectExpression(depsObject) || !isObjectExpression(testObject)) {
     return false;
   }
 
-  return { reason: reasons.join(" ") };
+  const serverOptions = depsObject.properties.filter((property: any) => {
+    const propertyName = getObjectPropertyName(property);
+
+    return propertyName ? movedServerDepOptions.has(propertyName) : false;
+  });
+
+  if (serverOptions.length === 0) {
+    return false;
+  }
+
+  const serverObject = ensureObjectProperty(j, testObject, "server");
+  const serverDepsObject = ensureObjectProperty(j, serverObject, "deps");
+
+  if (!serverDepsObject) {
+    return false;
+  }
+
+  let changed = false;
+
+  for (const property of serverOptions) {
+    const propertyName = getObjectPropertyName(property);
+
+    if (!propertyName || findObjectProperty(serverDepsObject, propertyName)) {
+      continue;
+    }
+
+    removeObjectProperty(depsObject, property);
+    serverDepsObject.properties.push(property);
+    changed = true;
+  }
+
+  if (changed && depsObject.properties.length === 0) {
+    removeObjectProperty(testObject, path.node);
+  }
+
+  return changed;
+}
+
+function moduleRunnerConfigReviewBlocker(filePath: string) {
+  const source = readFileSync(filePath, "utf8");
+
+  if (!hasLegacyServerDepOptions(filePath, source)) {
+    return false;
+  }
+
+  return { reason: "deps.external/deps.inline/deps.fallbackCJS moved under server.deps." };
+}
+
+function hasLegacyServerDepOptions(filePath: string, source: string): boolean {
+  const { j, root } = parseSource(filePath, source);
+  let found = false;
+
+  root.find(j.ObjectProperty).forEach((path: NodePath) => {
+    const propertyName = getObjectPropertyName(path.node);
+
+    if (
+      propertyName &&
+      movedServerDepOptions.has(propertyName) &&
+      isUnderPropertyChain(path, ["deps", "test"])
+    ) {
+      found = true;
+    }
+  });
+
+  return found;
 }
 
 export { moduleRunnerConfigChange };

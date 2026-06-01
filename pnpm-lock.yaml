@@ -52,6 +52,40 @@ importers:
         specifier: ^4.1.7
         version: 4.1.7(@types/node@25.9.1)(vite@8.0.14(@types/node@25.9.1))
 
+  migration-runners/vitest-3-to-4:
+    dependencies:
+      migration-kit:
+        specifier: file:../..
+        version: file:(ast-grep@0.1.0)(jscodeshift@17.3.0)
+      semver:
+        specifier: ^7.8.1
+        version: 7.8.1
+      tinyrainbow:
+        specifier: 3.1.0
+        version: 3.1.0
+      vite:
+        specifier: '>=6.0.0'
+        version: 8.0.14(@types/node@25.9.1)
+    devDependencies:
+      '@types/node':
+        specifier: ^25.9.1
+        version: 25.9.1
+      '@types/semver':
+        specifier: ^7.7.1
+        version: 7.7.1
+      jscodeshift:
+        specifier: ^17.3.0
+        version: 17.3.0
+      tsdown:
+        specifier: ^0.22.1
+        version: 0.22.1(typescript@6.0.3)
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^4.1.7
+        version: 4.1.7(@types/node@25.9.1)(vite@8.0.14(@types/node@25.9.1))
+
 packages:
 
   '@babel/code-frame@7.0.0-beta.37':
@@ -1388,6 +1422,12 @@ packages:
   micromatch@4.0.8:
     resolution: {integrity: sha512-PXwfBhYu0hBCPw8Dn0E+WDYb7af3dSLVWKi3HGv84IdF4TyFoC0ysxFd0Goxw7nSv4T/PzEJQxsYsEiFCKo2BA==}
     engines: {node: '>=8.6'}
+
+  'migration-kit@file:':
+    resolution: {directory: '', type: directory}
+    peerDependencies:
+      ast-grep: ^0.1
+      jscodeshift: ^17
 
   mimic-fn@1.2.0:
     resolution: {integrity: sha512-jf84uxzwiuiIVKiOLpfYk7N46TSy8ubTonmneY9vrpHNAnp0QBt2BxWV9dO3/j+BoVAb+a5G6YDPW3M5HOdMWQ==}
@@ -3090,6 +3130,16 @@ snapshots:
     dependencies:
       braces: 3.0.3
       picomatch: 2.3.2
+
+  migration-kit@file:(ast-grep@0.1.0)(jscodeshift@17.3.0):
+    dependencies:
+      '@clack/prompts': 1.5.0
+      ast-grep: 0.1.0
+      jscodeshift: 17.3.0
+      log-update: 8.0.0
+      semver: 7.8.1
+      tinyglobby: 0.2.16
+      tinyrainbow: 3.1.0
 
   mimic-fn@1.2.0: {}
 
