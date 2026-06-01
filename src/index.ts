@@ -12,6 +12,11 @@ export type {
 } from "./transformer/jscodeshift.js";
 export type {
   ApiChange,
+  BlockCheckResult,
+  BlockFinding,
+  BlockKind,
+  ManualConfirmationBlock,
+  ManualFixBlock,
   ConfigChange,
   EnvironmentRequirementCheck,
   MigrationRunnerOptions,

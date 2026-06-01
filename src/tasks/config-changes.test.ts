@@ -2,15 +2,22 @@ import type { createLogUpdate } from "log-update";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { requestManualConfirmation } from "../utils/manual-confirmation.js";
 import { stripAnsi } from "../utils/log-style.js";
 import { configChangesTask } from "./config-changes.js";
 
+vi.mock("../utils/manual-confirmation.js", () => ({
+  requestManualConfirmation: vi.fn(),
+}));
+
 const originalCwd = process.cwd();
 const tempDirectories: string[] = [];
+const requestManualConfirmationMock = vi.mocked(requestManualConfirmation);
 
 afterEach(() => {
   process.chdir(originalCwd);
+  vi.clearAllMocks();
 
   for (const directory of tempDirectories.splice(0)) {
     rmSync(directory, { recursive: true, force: true });
@@ -82,6 +89,40 @@ describe("configChangesTask", () => {
       "      → Waiting for changes under cwd...",
       "    → Rechecking after file change",
       "    ✓ Not blocked",
+    ]);
+  });
+
+  it("prompts for manual-confirmation blockers instead of waiting for file changes", async () => {
+    const messages: string[] = [];
+    const logUpdate = createTestLogUpdate(messages);
+
+    requestManualConfirmationMock.mockResolvedValueOnce(true);
+
+    await configChangesTask(
+      logUpdate,
+      [
+        {
+          title: "Verify restoreMocks cleanup",
+          policy: "blocking",
+          shouldBlock: () => ({
+            kind: "manual-confirmation",
+            reason:
+              "restoreMocks now follows vi.restoreAllMocks behavior and no longer resets spy state.",
+            prompt: "Confirm restoreMocks cleanup expectations were reviewed.",
+          }),
+        },
+      ],
+      "/project/vitest.config.ts",
+    );
+
+    expect(requestManualConfirmationMock).toHaveBeenCalledWith(
+      "Confirm restoreMocks cleanup expectations were reviewed.",
+    );
+    expect(messages).toEqual([
+      "  → Verify restoreMocks cleanup",
+      "    ! Needs confirmation",
+      "      restoreMocks now follows vi.restoreAllMocks behavior and no longer resets spy state.",
+      "    ✓ Confirmed",
     ]);
   });
 

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { collectSourceReviewReasons } from "./review-source-api-changes.js";
+import {
+  collectSourceReviewFindings,
+  collectSourceReviewReasons,
+} from "./review-source-api-changes.js";
 
 describe("collectSourceReviewReasons", () => {
   it("flags vi.stubGlobal constructor mocks implemented with arrows", () => {
@@ -80,5 +83,17 @@ describe("collectSourceReviewReasons", () => {
     `);
 
     expect(reasons).toEqual([]);
+  });
+
+  it("marks restoreAllMocks behavior checks as manual confirmations", () => {
+    const findings = collectSourceReviewFindings("afterEach(() => vi.restoreAllMocks());");
+
+    expect(findings).toEqual([
+      {
+        kind: "manual-confirmation",
+        reason:
+          "vi.restoreAllMocks no longer resets spy state or automocks; verify mock cleanup expectations.",
+      },
+    ]);
   });
 });

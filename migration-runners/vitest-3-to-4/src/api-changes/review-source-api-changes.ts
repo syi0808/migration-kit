@@ -2,6 +2,11 @@ import { readFileSync } from "node:fs";
 import type { ApiChange } from "migration-kit";
 import { sourceFilePatterns } from "../patterns.js";
 
+type SourceReviewFinding = {
+  kind: "manual-fix" | "manual-confirmation";
+  reason: string;
+};
+
 const reviewSourceApiChanges: ApiChange = {
   title: "Review Vitest 4 source API changes",
   description:
@@ -12,62 +17,76 @@ const reviewSourceApiChanges: ApiChange = {
 };
 
 function sourceReviewBlocker(filePath: string) {
-  const reasons = collectSourceReviewReasons(readFileSync(filePath, "utf8"));
+  const findings = collectSourceReviewFindings(readFileSync(filePath, "utf8"));
 
-  if (reasons.length === 0) {
+  if (findings.length === 0) {
     return false;
   }
 
-  return { reason: reasons.join(" ") };
+  const reason = findings.map((finding) => finding.reason).join(" ");
+
+  if (findings.every((finding) => finding.kind === "manual-confirmation")) {
+    return {
+      kind: "manual-confirmation",
+      reason,
+      prompt: "Confirm Vitest 4 mock cleanup behavior was manually verified before continuing.",
+    };
+  }
+
+  return { reason };
 }
 
 function collectSourceReviewReasons(source: string): string[] {
-  const reasons: string[] = [];
+  return collectSourceReviewFindings(source).map((finding) => finding.reason);
+}
 
-  addIf(
-    reasons,
+function collectSourceReviewFindings(source: string): SourceReviewFinding[] {
+  const findings: SourceReviewFinding[] = [];
+
+  addManualFixIf(
+    findings,
     source.includes("@vitest/browser/utils"),
     "Replace @vitest/browser/utils imports with utilities from vitest/browser.",
   );
-  addIf(
-    reasons,
+  addManualFixIf(
+    findings,
     source.includes("vitest/execute"),
     "vitest/execute was removed; migrate internal runner integrations to the new module runner APIs.",
   );
-  addIf(
-    reasons,
+  addManualFixIf(
+    findings,
     source.includes("__vitest_executor"),
     "__vitest_executor is no longer injected; use the injected moduleRunner where applicable.",
   );
-  addIf(
-    reasons,
+  addManualFixIf(
+    findings,
     /\btransformMode\s*:/.test(source),
     "Custom Vitest environments no longer need transformMode; provide viteEnvironment when needed.",
   );
-  addIf(
-    reasons,
+  addManualConfirmationIf(
+    findings,
     /\bvi\.restoreAllMocks\s*\(/.test(source),
     "vi.restoreAllMocks no longer resets spy state or automocks; verify mock cleanup expectations.",
   );
   const constructorGlobalMocks = collectNonConstructableGlobalMockNames(source);
 
-  addIf(
-    reasons,
+  addManualFixIf(
+    findings,
     constructorGlobalMocks.length > 0,
     `Vitest 4 constructs mocks called with new; replace arrow/mockReturnValue global constructor stubs (${constructorGlobalMocks.join(", ")}) with function or class implementations.`,
   );
-  addIf(
-    reasons,
+  addManualFixIf(
+    findings,
     /\b(onCollected|onSpecsCollected|onPathsCollected|onTaskUpdate|onFinished)\s*\(/.test(source),
     "Several reporter APIs were removed; migrate custom reporters to the Vitest 4 reporter API.",
   );
-  addIf(
-    reasons,
+  addManualFixIf(
+    findings,
     /\b(SpyInstance|WorkspaceSpec)\b/.test(source),
     "Deprecated Vitest types were removed; replace them with current public types.",
   );
 
-  return reasons;
+  return findings;
 }
 
 const constructableGlobalNames = [
@@ -209,10 +228,25 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function addIf(reasons: string[], condition: boolean, reason: string) {
+function addManualFixIf(findings: SourceReviewFinding[], condition: boolean, reason: string) {
   if (condition) {
-    reasons.push(reason);
+    findings.push({ kind: "manual-fix", reason });
   }
 }
 
-export { collectSourceReviewReasons, reviewSourceApiChanges, sourceReviewBlocker };
+function addManualConfirmationIf(
+  findings: SourceReviewFinding[],
+  condition: boolean,
+  reason: string,
+) {
+  if (condition) {
+    findings.push({ kind: "manual-confirmation", reason });
+  }
+}
+
+export {
+  collectSourceReviewFindings,
+  collectSourceReviewReasons,
+  reviewSourceApiChanges,
+  sourceReviewBlocker,
+};

@@ -2,15 +2,22 @@ import type { createLogUpdate } from "log-update";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { requestManualConfirmation } from "../utils/manual-confirmation.js";
 import { stripAnsi } from "../utils/log-style.js";
 import { apiChangesTask } from "./api-changes.js";
 
+vi.mock("../utils/manual-confirmation.js", () => ({
+  requestManualConfirmation: vi.fn(),
+}));
+
 const originalCwd = process.cwd();
 const tempDirectories: string[] = [];
+const requestManualConfirmationMock = vi.mocked(requestManualConfirmation);
 
 afterEach(() => {
   process.chdir(originalCwd);
+  vi.clearAllMocks();
 
   for (const directory of tempDirectories.splice(0)) {
     rmSync(directory, { recursive: true, force: true });
@@ -111,6 +118,69 @@ describe("apiChangesTask", () => {
       "      → Waiting for changes under cwd...",
       "    → Rechecking after file change",
       "    ✓ Not blocked",
+    ]);
+  });
+
+  it("prompts for manual-confirmation blockers instead of waiting for file changes", async () => {
+    const messages: string[] = [];
+    const logUpdate = createTestLogUpdate(messages);
+    const cwd = createProject({ "src/a.ts": "vi.restoreAllMocks();" });
+
+    requestManualConfirmationMock.mockResolvedValueOnce(true);
+    process.chdir(cwd);
+
+    await apiChangesTask(logUpdate, [
+      {
+        title: "Verify mock cleanup",
+        policy: "blocking",
+        files: ["src/**/*.ts"],
+        shouldBlock: () => ({
+          kind: "manual-confirmation",
+          reason:
+            "vi.restoreAllMocks no longer resets spy state or automocks; verify mock cleanup expectations.",
+          prompt: "Confirm mock cleanup expectations were reviewed.",
+        }),
+      },
+    ]);
+
+    expect(requestManualConfirmationMock).toHaveBeenCalledWith(
+      "Confirm mock cleanup expectations were reviewed.",
+    );
+    expect(messages).toEqual([
+      "  → Verify mock cleanup",
+      "    ! 1 needs confirmation",
+      "      src/a.ts: vi.restoreAllMocks no longer resets spy state or automocks; verify mock cleanup expectations.",
+      "    ✓ Confirmed",
+    ]);
+  });
+
+  it("fails when manual confirmation is declined", async () => {
+    const messages: string[] = [];
+    const logUpdate = createTestLogUpdate(messages);
+    const cwd = createProject({ "src/a.ts": "vi.restoreAllMocks();" });
+
+    requestManualConfirmationMock.mockResolvedValueOnce(false);
+    process.chdir(cwd);
+
+    await expect(
+      apiChangesTask(logUpdate, [
+        {
+          title: "Verify mock cleanup",
+          policy: "blocking",
+          files: ["src/**/*.ts"],
+          shouldBlock: () => ({
+            kind: "manual-confirmation",
+            reason: "Verify mock cleanup expectations.",
+          }),
+        },
+      ]),
+    ).rejects.toThrow("API changes require attention.");
+
+    expect(messages).toEqual([
+      "  → Verify mock cleanup",
+      "    ! 1 needs confirmation",
+      "      src/a.ts: Verify mock cleanup expectations.",
+      "    ✗ Confirmation declined",
     ]);
   });
 

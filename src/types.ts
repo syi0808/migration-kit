@@ -60,12 +60,27 @@ export interface PackageVersionUpdate {
 }
 
 export type BlockPolicy = "blocking" | "advisory";
+export type BlockKind = "manual-fix" | "manual-confirmation";
+
+export type ManualFixBlock = {
+  kind?: "manual-fix";
+  reason: string;
+};
+
+export type ManualConfirmationBlock = {
+  kind: "manual-confirmation";
+  reason: string;
+  prompt?: string;
+};
+
+export type BlockFinding = ManualFixBlock | ManualConfirmationBlock;
+export type BlockCheckResult = false | BlockFinding;
 
 export interface ConfigChange {
   title: string;
   description?: string;
   policy?: BlockPolicy;
-  shouldBlock?: (configPath: string) => false | { reason: string };
+  shouldBlock?: (configPath: string) => BlockCheckResult;
   transform?: Transformer;
 }
 
@@ -74,7 +89,7 @@ export interface ApiChange {
   description?: string;
   policy?: BlockPolicy;
   files: string[];
-  shouldBlock?: (filePath: string) => false | { reason: string };
+  shouldBlock?: (filePath: string) => BlockCheckResult;
   transform?: Transformer;
 }
 

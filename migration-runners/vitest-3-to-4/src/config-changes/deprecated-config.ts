@@ -1,6 +1,11 @@
 import { readFileSync } from "node:fs";
 import type { ConfigChange } from "migration-kit";
 
+type DeprecatedConfigFinding = {
+  kind: "manual-fix" | "manual-confirmation";
+  reason: string;
+};
+
 const deprecatedConfigChange: ConfigChange = {
   title: "Review removed Vitest 4 config options",
   description:
@@ -11,35 +16,61 @@ const deprecatedConfigChange: ConfigChange = {
 
 function deprecatedConfigReviewBlocker(filePath: string) {
   const source = readFileSync(filePath, "utf8");
-  const reasons: string[] = [];
+  const findings = collectDeprecatedConfigFindings(source);
 
-  addIf(
-    reasons,
+  if (findings.length === 0) {
+    return false;
+  }
+
+  const reason = findings.map((finding) => finding.reason).join(" ");
+
+  if (findings.every((finding) => finding.kind === "manual-confirmation")) {
+    return {
+      kind: "manual-confirmation",
+      reason,
+      prompt: "Confirm Vitest 4 mock cleanup behavior was manually verified before continuing.",
+    };
+  }
+
+  return { reason };
+}
+
+function collectDeprecatedConfigFindings(source: string): DeprecatedConfigFinding[] {
+  const findings: DeprecatedConfigFinding[] = [];
+
+  addManualFixIf(
+    findings,
     /\b(poolMatchGlobs|environmentMatchGlobs)\s*:/.test(source),
     "poolMatchGlobs/environmentMatchGlobs were removed; migrate these cases to test.projects.",
   );
-  addIf(
-    reasons,
+  addManualFixIf(
+    findings,
     /\bbrowser\s*:\s*{[\s\S]*?\btesterScripts\s*:/.test(source),
     "browser.testerScripts was removed; use browser.testerHtmlPath.",
   );
-  addIf(
-    reasons,
+  addManualConfirmationIf(
+    findings,
     /\brestoreMocks\s*:\s*true/.test(source),
     "restoreMocks now follows vi.restoreAllMocks behavior and no longer resets spy state.",
   );
 
-  if (reasons.length === 0) {
-    return false;
-  }
-
-  return { reason: reasons.join(" ") };
+  return findings;
 }
 
-function addIf(reasons: string[], condition: boolean, reason: string) {
+function addManualFixIf(findings: DeprecatedConfigFinding[], condition: boolean, reason: string) {
   if (condition) {
-    reasons.push(reason);
+    findings.push({ kind: "manual-fix", reason });
   }
 }
 
-export { deprecatedConfigChange };
+function addManualConfirmationIf(
+  findings: DeprecatedConfigFinding[],
+  condition: boolean,
+  reason: string,
+) {
+  if (condition) {
+    findings.push({ kind: "manual-confirmation", reason });
+  }
+}
+
+export { collectDeprecatedConfigFindings, deprecatedConfigChange };
