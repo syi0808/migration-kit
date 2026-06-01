@@ -2,8 +2,12 @@ import type { createLogUpdate } from "log-update";
 import { isAbsolute, relative } from "node:path";
 import type { BlockFinding, ConfigChange, TransformResult, Transformer } from "../types.js";
 import { logStyle } from "../utils/log-style.js";
-import { requestManualConfirmation } from "../utils/manual-confirmation.js";
-import { waitForCwdChange } from "../utils/watch.js";
+import {
+  runBlockingSession,
+  type BlockingConfirmation,
+  type BlockingItem,
+  type BlockingSnapshot,
+} from "./blocking-session.js";
 
 async function configChangesTask(
   logUpdate: ReturnType<typeof createLogUpdate>,
@@ -49,65 +53,49 @@ async function waitForConfigBlockCheck(
   }
 
   const policy = check.policy ?? "blocking";
-  const confirmedManualConfirmations = new Set<string>();
 
-  while (true) {
-    const result = runBlockCheck(check.shouldBlock, configPath);
+  return runBlockingSession({
+    logUpdate,
+    policy,
+    collectSnapshot: () => collectBlockSummary(check, configPath),
+  });
+}
 
-    if (result.status === "failed") {
-      logUpdate.persist(logStyle.error("Block check failed", 2));
-      logUpdate.persist(logStyle.detail(result.reason, 3));
-      return true;
-    }
+function collectBlockSummary(check: ConfigChange, configPath: string): BlockingSnapshot {
+  const snapshot: BlockingSnapshot = {
+    manualFixes: [],
+    confirmations: [],
+    failures: [],
+  };
 
-    if (result.status === "passed") {
-      logUpdate.persist(
-        logStyle.success(policy === "blocking" ? "Not blocked" : "No advisories", 2),
-      );
-      return false;
-    }
-
-    const manualFixes = result.findings.filter(isManualFixFinding);
-    const manualConfirmations = result.findings
-      .filter(isManualConfirmationFinding)
-      .filter((finding) => !confirmedManualConfirmations.has(createManualConfirmationKey(finding)));
-    const blocked = policy === "blocking";
-
-    logBlockFindings(logUpdate, manualFixes, manualConfirmations, blocked);
-
-    if (!blocked) {
-      return false;
-    }
-
-    for (const confirmation of manualConfirmations) {
-      const confirmed = await requestManualConfirmation(
-        createManualConfirmationPrompt(check.title, configPath, confirmation),
-      );
-
-      if (confirmed) {
-        confirmedManualConfirmations.add(createManualConfirmationKey(confirmation));
-        logUpdate.persist(logStyle.success("Confirmed", 2));
-        continue;
-      }
-
-      logUpdate.persist(logStyle.error("Confirmation declined", 2));
-      return true;
-    }
-
-    if (manualFixes.length === 0) {
-      if (manualConfirmations.length === 0) {
-        logUpdate.persist(
-          logStyle.success(policy === "blocking" ? "Not blocked" : "No advisories", 2),
-        );
-      }
-
-      return false;
-    }
-
-    logUpdate.persist(logStyle.info("Waiting for changes under cwd...", 3));
-    await waitForCwdChange();
-    logUpdate.persist(logStyle.info("Rechecking after file change", 2));
+  if (!check.shouldBlock) {
+    return snapshot;
   }
+
+  const result = runBlockCheck(check.shouldBlock, configPath);
+
+  if (result.status === "failed") {
+    snapshot.failures.push({
+      key: `failed:${configPath}\0${result.reason}`,
+      detail: result.reason,
+    });
+    return snapshot;
+  }
+
+  if (result.status !== "blocked") {
+    return snapshot;
+  }
+
+  for (const finding of result.findings) {
+    if (isManualConfirmationFinding(finding)) {
+      snapshot.confirmations.push(createManualConfirmation(check.title, configPath, finding));
+      continue;
+    }
+
+    snapshot.manualFixes.push(createManualFix(finding.reason));
+  }
+
+  return snapshot;
 }
 
 type BlockCheckResult =
@@ -163,43 +151,10 @@ function normalizeBlockFinding(finding: BlockFinding): NormalizedBlockFinding {
   return { kind: "manual-fix", reason: finding.reason };
 }
 
-function isManualFixFinding(finding: NormalizedBlockFinding): finding is ManualFixFinding {
-  return finding.kind === "manual-fix";
-}
-
 function isManualConfirmationFinding(
   finding: NormalizedBlockFinding,
 ): finding is ManualConfirmationFinding {
   return finding.kind === "manual-confirmation";
-}
-
-function logBlockFindings(
-  logUpdate: ReturnType<typeof createLogUpdate>,
-  manualFixes: ManualFixFinding[],
-  manualConfirmations: ManualConfirmationFinding[],
-  blocked: boolean,
-) {
-  if (manualFixes.length > 0) {
-    logUpdate.persist(blocked ? logStyle.error("Blocked", 2) : logStyle.warning("Advisory", 2));
-
-    for (const finding of manualFixes) {
-      logUpdate.persist(logStyle.detail(finding.reason, 3));
-    }
-  }
-
-  if (manualConfirmations.length > 0) {
-    logUpdate.persist(
-      logStyle.warning(blocked ? "Needs confirmation" : "Confirmation advisory", 2),
-    );
-
-    for (const finding of manualConfirmations) {
-      logUpdate.persist(logStyle.detail(finding.reason, 3));
-    }
-  }
-}
-
-function createManualConfirmationKey(confirmation: ManualConfirmationFinding) {
-  return `${confirmation.reason}\0${confirmation.prompt ?? ""}`;
 }
 
 function createManualConfirmationPrompt(
@@ -214,6 +169,25 @@ function createManualConfirmationPrompt(
   }
 
   return `${filePath}: Confirm you manually verified "${title}" before continuing.`;
+}
+
+function createManualFix(reason: string): BlockingItem {
+  return {
+    key: `fix:${reason}`,
+    detail: reason,
+  };
+}
+
+function createManualConfirmation(
+  title: string,
+  configPath: string,
+  confirmation: ManualConfirmationFinding,
+): BlockingConfirmation {
+  return {
+    key: `${confirmation.reason}\0${confirmation.prompt ?? ""}`,
+    detail: confirmation.reason,
+    prompt: createManualConfirmationPrompt(title, configPath, confirmation),
+  };
 }
 
 function formatPlainPath(filePath: string) {

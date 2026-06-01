@@ -108,7 +108,7 @@ The options object supports:
 Block checks default to `policy: "blocking"`. A block check can return one finding or an array of findings:
 
 - `{ reason }` or `{ kind: "manual-fix", reason }` means a user edit is required. Blocking checks keep watching project files and recheck until the finding is resolved.
-- `{ kind: "manual-confirmation", reason, prompt? }` means the runner found something programmatically, but only needs the user to confirm that the implication was reviewed. Blocking checks ask with a clack confirm prompt for each confirmation finding and remember confirmed findings while waiting on any remaining manual fixes.
+- `{ kind: "manual-confirmation", reason, prompt? }` means the runner found something programmatically, but only needs the user to confirm that the implication was reviewed. Blocking checks ask with a clack confirm prompt for each confirmation finding before watching for any remaining manual fixes.
 
 Use blocking manual fixes for removed or moved options, deleted APIs, and behavior changes that can break the migrated project until a codemod or user edit resolves the finding. Use manual confirmations for checks the runner can detect but cannot prove semantically, such as changed mock cleanup expectations. Use `policy: "advisory"` only when the runner should report an informational or deprecated-but-still-working finding and continue.
 

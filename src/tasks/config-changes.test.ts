@@ -54,7 +54,8 @@ describe("configChangesTask", () => {
 
   it("rechecks blocking-policy blockers after cwd file changes", async () => {
     const messages: string[] = [];
-    const logUpdate = createTestLogUpdate(messages);
+    const liveMessages: string[] = [];
+    const logUpdate = createTestLogUpdate(messages, liveMessages);
     const cwd = createProject({ "vitest.config.ts": "coverage.all = true" });
 
     process.chdir(cwd);
@@ -84,17 +85,18 @@ describe("configChangesTask", () => {
 
     expect(messages).toEqual([
       "  → Remove old coverage option",
-      "    ✗ Blocked",
+      "    ✗ 1 manual fix required",
       "      Replace coverage.all with coverage.include",
-      "      → Waiting for changes under cwd...",
-      "    → Rechecking after file change",
-      "    ✓ Not blocked",
+      "    ✓ Manual fixes resolved",
+      "    ✓ Resolved",
     ]);
+    expect(liveMessages).toEqual(["    → Watching for project changes (1 manual fix remaining)."]);
   });
 
   it("prompts for manual-confirmation blockers instead of waiting for file changes", async () => {
     const messages: string[] = [];
-    const logUpdate = createTestLogUpdate(messages);
+    const liveMessages: string[] = [];
+    const logUpdate = createTestLogUpdate(messages, liveMessages);
 
     requestManualConfirmationMock.mockResolvedValueOnce(true);
 
@@ -120,20 +122,27 @@ describe("configChangesTask", () => {
     );
     expect(messages).toEqual([
       "  → Verify restoreMocks cleanup",
-      "    ! Needs confirmation",
-      "      restoreMocks now follows vi.restoreAllMocks behavior and no longer resets spy state.",
-      "    ✓ Confirmed",
+      "    ✓ 1 confirmation acknowledged",
+      "    ✓ Resolved",
+    ]);
+    expect(liveMessages).toEqual([
+      "    ! 1 confirmation required\n      restoreMocks now follows vi.restoreAllMocks behavior and no longer resets spy state.",
     ]);
   });
 
-  it("confirms manual-confirmation blockers before watching remaining manual fixes", async () => {
+  it("prompts manual-confirmation blockers before watching remaining manual fixes", async () => {
     const messages: string[] = [];
-    const logUpdate = createTestLogUpdate(messages);
+    const liveMessages: string[] = [];
+    const logUpdate = createTestLogUpdate(messages, liveMessages);
     const cwd = createProject({ "vitest.config.ts": "coverage.all = true; restoreMocks: true" });
 
-    requestManualConfirmationMock.mockResolvedValueOnce(true);
     process.chdir(cwd);
     const configPath = join(process.cwd(), "vitest.config.ts");
+
+    requestManualConfirmationMock.mockImplementationOnce(async () => {
+      expect(readFileSync(configPath, "utf8")).toBe("coverage.all = true; restoreMocks: true");
+      return true;
+    });
 
     setTimeout(() => {
       writeFileSync(configPath, "coverage.include = ['src/**']; restoreMocks: true");
@@ -177,14 +186,15 @@ describe("configChangesTask", () => {
     );
     expect(messages).toEqual([
       "  → Review mixed config findings",
-      "    ✗ Blocked",
+      "    ✓ 1 confirmation acknowledged",
+      "    ✗ 1 manual fix required",
       "      Replace coverage.all with coverage.include",
-      "    ! Needs confirmation",
-      "      Verify restoreMocks cleanup expectations.",
-      "    ✓ Confirmed",
-      "      → Waiting for changes under cwd...",
-      "    → Rechecking after file change",
-      "    ✓ Not blocked",
+      "    ✓ Manual fixes resolved",
+      "    ✓ Resolved",
+    ]);
+    expect(liveMessages).toEqual([
+      "    ! 1 confirmation required\n      Verify restoreMocks cleanup expectations.",
+      "    → Watching for project changes (1 manual fix remaining).",
     ]);
   });
 
@@ -206,7 +216,7 @@ describe("configChangesTask", () => {
 
     expect(messages).toEqual([
       "  → Review deprecated config option",
-      "    ! Advisory",
+      "    ! 1 advisory",
       "      Check whether this option still applies",
     ]);
   });
@@ -249,12 +259,20 @@ function createProject(files: Record<string, string>): string {
   return directory;
 }
 
-function createTestLogUpdate(messages: string[]): ReturnType<typeof createLogUpdate> {
-  return Object.assign(() => {}, {
-    clear: () => {},
-    done: () => {},
-    persist: (...text: string[]) => {
-      messages.push(stripAnsi(text.join(" ")));
+function createTestLogUpdate(
+  messages: string[],
+  liveMessages: string[] = [],
+): ReturnType<typeof createLogUpdate> {
+  return Object.assign(
+    (...text: string[]) => {
+      liveMessages.push(stripAnsi(text.join(" ")));
     },
-  });
+    {
+      clear: () => {},
+      done: () => {},
+      persist: (...text: string[]) => {
+        messages.push(stripAnsi(text.join(" ")));
+      },
+    },
+  );
 }
