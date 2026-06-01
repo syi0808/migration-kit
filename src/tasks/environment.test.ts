@@ -30,6 +30,24 @@ describe("environmentTask", () => {
     expect(messages).toEqual(["  ✗ node >=20 required, current 18.19.0"]);
   });
 
+  it("adds evidence to failed structured results", async () => {
+    const messages: string[] = [];
+    const logUpdate = createTestLogUpdate(messages);
+    const checks = [
+      createCheck({
+        available: false,
+        evidence: ["package.json#engines: >=18.0.0", "node --version: 18.19.0"],
+        message: "node >=20 required",
+      }),
+    ];
+
+    await environmentTask(logUpdate, checks);
+
+    expect(messages).toEqual([
+      "  ✗ node >=20 required (package.json#engines: >=18.0.0; node --version: 18.19.0)",
+    ]);
+  });
+
   it("continues after a check throws", async () => {
     const messages: string[] = [];
     const logUpdate = createTestLogUpdate(messages);

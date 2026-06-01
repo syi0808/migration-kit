@@ -20,11 +20,15 @@ describe("runtime checker", () => {
     expect(runtime.node({ command, cwd, version: ">=20.0.0" })()).toBe(true);
   });
 
-  it("returns false when the detected node version does not satisfy the required range", () => {
+  it("returns a failed result with command evidence when the detected node version does not satisfy the required range", () => {
     const cwd = createProject();
     const command = createVersionCommand("v18.19.0");
 
-    expect(runtime.node({ command, cwd, version: ">=20.0.0" })()).toBe(false);
+    expect(runtime.node({ command, cwd, version: ">=20.0.0" })()).toEqual({
+      available: false,
+      evidence: [`${command} --version: 18.19.0`],
+      message: "node >=20.0.0 required",
+    });
   });
 
   it("returns true when a runtime exists and no version range is required", () => {
@@ -34,10 +38,14 @@ describe("runtime checker", () => {
     expect(runtime.node({ command, cwd })()).toBe(true);
   });
 
-  it("returns false when the runtime command cannot be executed", () => {
+  it("returns a failed result with command evidence when the runtime command cannot be executed", () => {
     const cwd = createProject();
 
-    expect(runtime.node({ command: "definitely-not-a-runtime-command", cwd })()).toBe(false);
+    expect(runtime.node({ command: "definitely-not-a-runtime-command", cwd })()).toEqual({
+      available: false,
+      evidence: ["definitely-not-a-runtime-command --version: failed"],
+      message: "node unavailable",
+    });
   });
 
   it("parses bun and deno version output formats", () => {
@@ -58,13 +66,26 @@ describe("runtime checker", () => {
     expect(runtime.node({ command, cwd, version: ">=20.0.0" })()).toBe(true);
   });
 
+  it("treats package.json engines major ranges as stable ranges", () => {
+    const cwd = createProject({
+      "package.json": JSON.stringify({ engines: { node: ">=20" } }),
+    });
+    const command = createVersionCommand("v18.19.0");
+
+    expect(runtime.node({ command, cwd, version: ">=20.0.0" })()).toBe(true);
+  });
+
   it("treats an evaluable project runtime range as authoritative", () => {
     const cwd = createProject({
       "package.json": JSON.stringify({ engines: { node: ">=18.0.0" } }),
     });
     const command = createVersionCommand("v24.5.0");
 
-    expect(runtime.node({ command, cwd, version: ">=20.0.0" })()).toBe(false);
+    expect(runtime.node({ command, cwd, version: ">=20.0.0" })()).toEqual({
+      available: false,
+      evidence: ["package.json#engines: >=18.0.0"],
+      message: "node >=20.0.0 required",
+    });
   });
 
   it("checks package.json volta before running the runtime command", () => {

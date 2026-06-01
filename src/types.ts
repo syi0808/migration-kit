@@ -30,6 +30,7 @@ export type EnvironmentRequirementResult =
   | EnvironmentAvailableStatus
   | {
       available: EnvironmentAvailableStatus;
+      evidence?: string[];
       message?: string;
     };
 

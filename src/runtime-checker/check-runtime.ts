@@ -6,6 +6,7 @@ import semver from "semver";
 
 const SEMVER_PATTERN = /v?(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?)/;
 const SEMVER_OPTIONS = { includePrerelease: true, loose: true };
+const SEMVER_RANGE_OPTIONS = { loose: true };
 const TOOL_VERSION_NAMES: Record<string, string[]> = {
   bun: ["bun"],
   deno: ["deno"],
@@ -29,6 +30,17 @@ type ProjectRuntimeRequirement = {
   version: string;
 };
 
+type RuntimeVersionLookup =
+  | {
+      evidence: string;
+      status: "found";
+      version: string;
+    }
+  | {
+      evidence: string;
+      status: "missing";
+    };
+
 function createRuntimeCheck(
   runtimeName: string,
   defaultCommand: string,
@@ -43,8 +55,11 @@ function createRuntimeCheck(
   const label = version ? `${runtimeName} ${version}` : runtimeName;
   const check: EnvironmentRequirementCheck = () => {
     const projectRequirement = readProjectRuntimeRequirement(runtimeName, cwd);
+    const evidence: string[] = [];
 
     if (projectRequirement) {
+      evidence.push(formatRuntimeEvidence(projectRequirement.source, projectRequirement.version));
+
       if (!version) {
         return true;
       }
@@ -55,21 +70,26 @@ function createRuntimeCheck(
       );
 
       if (projectRequirementStatus !== null) {
-        return projectRequirementStatus;
+        return projectRequirementStatus
+          ? true
+          : createFailureResult(check.failureMessage ?? label, evidence);
       }
     }
 
     const currentVersion = readRuntimeVersion(command);
+    evidence.push(currentVersion.evidence);
 
-    if (!currentVersion) {
-      return false;
+    if (currentVersion.status === "missing") {
+      return createFailureResult(check.failureMessage ?? label, evidence);
     }
 
     if (!version) {
       return true;
     }
 
-    return semver.satisfies(currentVersion, version, { includePrerelease: true });
+    return semver.satisfies(currentVersion.version, version, { includePrerelease: true })
+      ? true
+      : createFailureResult(check.failureMessage ?? label, evidence);
   };
 
   check.label = label;
@@ -77,6 +97,18 @@ function createRuntimeCheck(
   check.failureMessage = version ? `${label} required` : `${label} unavailable`;
 
   return check;
+}
+
+function createFailureResult(message: string, evidence: string[]) {
+  return {
+    available: false,
+    evidence,
+    message,
+  };
+}
+
+function formatRuntimeEvidence(source: string, value: string) {
+  return `${source}: ${value}`;
 }
 
 function readProjectRuntimeRequirement(
@@ -255,7 +287,7 @@ function readVersionFile(filePath: string): string | null {
 }
 
 function checkConfiguredRuntimeVersion(configuredVersion: string, requiredVersion: string) {
-  const configuredRange = semver.validRange(configuredVersion, SEMVER_OPTIONS);
+  const configuredRange = semver.validRange(configuredVersion, SEMVER_RANGE_OPTIONS);
 
   if (!configuredRange) {
     return null;
@@ -264,7 +296,9 @@ function checkConfiguredRuntimeVersion(configuredVersion: string, requiredVersio
   return semver.subset(configuredRange, requiredVersion, SEMVER_OPTIONS);
 }
 
-function readRuntimeVersion(command: string): string | null {
+function readRuntimeVersion(command: string): RuntimeVersionLookup {
+  const source = `${command} --version`;
+
   try {
     const output = execFileSync(command, ["--version"], {
       encoding: "utf8",
@@ -272,10 +306,18 @@ function readRuntimeVersion(command: string): string | null {
       timeout: 5000,
       windowsHide: true,
     });
+    const version = parseRuntimeVersion(output);
 
-    return parseRuntimeVersion(output);
+    if (!version) {
+      return {
+        evidence: formatRuntimeEvidence(source, formatUnparseableOutput(output)),
+        status: "missing",
+      };
+    }
+
+    return { evidence: formatRuntimeEvidence(source, version), status: "found", version };
   } catch {
-    return null;
+    return { evidence: formatRuntimeEvidence(source, "failed"), status: "missing" };
   }
 }
 
@@ -285,6 +327,16 @@ function parseRuntimeVersion(output: string): string | null {
   const validVersion = semver.valid(version) ?? semver.coerce(version)?.version;
 
   return validVersion ?? null;
+}
+
+function formatUnparseableOutput(output: string) {
+  const formattedOutput = output.trim().replaceAll(/\s+/g, " ");
+
+  if (!formattedOutput) {
+    return "unparseable output";
+  }
+
+  return `unparseable output ${JSON.stringify(formattedOutput)}`;
 }
 
 function withoutComment(value: string): string {

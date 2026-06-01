@@ -11,8 +11,11 @@ async function environmentTask(
       const result = await check();
       const available = isAvailable(result);
       const message = formatCheckMessage(check, result, available, index);
+      const formattedMessage = formatResultEvidence(message, result, available);
 
-      logUpdate.persist(available ? logStyle.success(message) : logStyle.error(message));
+      logUpdate.persist(
+        available ? logStyle.success(formattedMessage) : logStyle.error(formattedMessage),
+      );
     } catch (error) {
       const label = check.label ?? `Check ${index + 1}`;
       const message = formatError(error);
@@ -45,6 +48,18 @@ function formatCheckMessage(
   }
 
   return check.label ?? `Check ${index + 1}`;
+}
+
+function formatResultEvidence(
+  message: string,
+  result: EnvironmentRequirementResult,
+  available: boolean,
+) {
+  if (available || typeof result === "boolean" || !result.evidence?.length) {
+    return message;
+  }
+
+  return `${message} (${result.evidence.join("; ")})`;
 }
 
 function formatError(error: unknown) {
