@@ -90,7 +90,9 @@ describe("configChangesTask", () => {
       "    ✓ Manual fixes resolved",
       "    ✓ Resolved",
     ]);
-    expect(liveMessages).toEqual(["    → Watching for project changes (1 manual fix remaining)."]);
+    expect(liveMessages).toEqual([
+      "    → Watching for project changes (1 manual fix remaining). Press c to copy fixes.",
+    ]);
   });
 
   it("prompts for manual-confirmation blockers instead of waiting for file changes", async () => {
@@ -194,7 +196,7 @@ describe("configChangesTask", () => {
     ]);
     expect(liveMessages).toEqual([
       "    ! 1 confirmation required\n      Verify restoreMocks cleanup expectations.",
-      "    → Watching for project changes (1 manual fix remaining).",
+      "    → Watching for project changes (1 manual fix remaining). Press c to copy fixes.",
     ]);
   });
 

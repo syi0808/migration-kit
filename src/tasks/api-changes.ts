@@ -3,6 +3,7 @@ import { isAbsolute, relative } from "node:path";
 import { glob } from "tinyglobby";
 import type { ApiChange, BlockFinding, TransformResult, Transformer } from "../types.js";
 import { logStyle } from "../utils/log-style.js";
+import { createProgressTui } from "../utils/progress.js";
 import {
   runBlockingSession,
   type BlockingConfirmation,
@@ -30,14 +31,28 @@ async function apiChangesTask(logUpdate: ReturnType<typeof createLogUpdate>, che
     const summary = createSummary();
 
     if (check.transform) {
-      for (const filePath of filePaths) {
-        const result = await runTransform(check.transform, filePath);
+      const progress = createProgressTui(logUpdate, {
+        label: "Running transforms",
+        total: filePaths.length,
+      });
 
-        recordTransformResult(summary, result);
+      progress.render(0, formatProgressPath(filePaths[0]), { force: true });
 
-        if (result.status === "failed") {
-          hasFailure = true;
+      try {
+        for (const [index, filePath] of filePaths.entries()) {
+          progress.render(index, formatProgressPath(filePath));
+          const result = await runTransform(check.transform, filePath);
+
+          recordTransformResult(summary, result);
+
+          if (result.status === "failed") {
+            hasFailure = true;
+          }
+
+          progress.render(index + 1, formatProgressPath(filePath));
         }
+      } finally {
+        progress.clear();
       }
     }
 
@@ -103,11 +118,14 @@ async function waitForApiBlockCheck(
   return runBlockingSession({
     logUpdate,
     policy,
-    collectSnapshot: () => collectBlockSummary(check),
+    collectSnapshot: () => collectBlockSummary(logUpdate, check),
   });
 }
 
-async function collectBlockSummary(check: ApiChange): Promise<BlockingSnapshot> {
+async function collectBlockSummary(
+  logUpdate: ReturnType<typeof createLogUpdate>,
+  check: ApiChange,
+): Promise<BlockingSnapshot> {
   const snapshot: BlockingSnapshot = {
     manualFixes: [],
     confirmations: [],
@@ -119,27 +137,41 @@ async function collectBlockSummary(check: ApiChange): Promise<BlockingSnapshot> 
   }
 
   const filePaths = await findFiles(check.files);
+  const progress = createProgressTui(logUpdate, {
+    label: "Checking blockers",
+    total: filePaths.length,
+  });
 
-  for (const filePath of filePaths) {
-    const result = runBlockCheck(check.shouldBlock, filePath);
+  progress.render(0, formatProgressPath(filePaths[0]), { force: true });
 
-    if (result.status === "failed") {
-      snapshot.failures.push({
-        key: `failed:${filePath}\0${result.reason}`,
-        detail: formatFileResult(filePath, result.reason),
-      });
-      continue;
-    }
+  try {
+    for (const [index, filePath] of filePaths.entries()) {
+      progress.render(index, formatProgressPath(filePath));
+      const result = runBlockCheck(check.shouldBlock, filePath);
 
-    if (result.status === "blocked") {
-      for (const finding of result.findings) {
-        if (finding.kind === "manual-confirmation") {
-          snapshot.confirmations.push(createManualConfirmation(check.title, filePath, finding));
-        } else {
-          snapshot.manualFixes.push(createManualFix(filePath, finding.reason));
+      if (result.status === "failed") {
+        snapshot.failures.push({
+          key: `failed:${filePath}\0${result.reason}`,
+          detail: formatFileResult(filePath, result.reason),
+        });
+        progress.render(index + 1, formatProgressPath(filePath));
+        continue;
+      }
+
+      if (result.status === "blocked") {
+        for (const finding of result.findings) {
+          if (finding.kind === "manual-confirmation") {
+            snapshot.confirmations.push(createManualConfirmation(check.title, filePath, finding));
+          } else {
+            snapshot.manualFixes.push(createManualFix(filePath, finding.reason));
+          }
         }
       }
+
+      progress.render(index + 1, formatProgressPath(filePath));
     }
+  } finally {
+    progress.clear();
   }
 
   return snapshot;
@@ -291,6 +323,10 @@ function formatPlainPath(filePath: string) {
   }
 
   return relativePath;
+}
+
+function formatProgressPath(filePath: string | undefined) {
+  return filePath ? formatPlainPath(filePath) : undefined;
 }
 
 function formatError(error: unknown) {

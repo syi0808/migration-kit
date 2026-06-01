@@ -3,12 +3,33 @@ import { join } from "node:path";
 
 const ignoredDirectories = new Set([".git", "node_modules"]);
 
-async function waitForCwdChange(cwd = process.cwd()): Promise<void> {
+type KeyInputStream = {
+  isTTY?: boolean;
+  isRaw?: boolean;
+  setRawMode?: (mode: boolean) => unknown;
+  resume: () => unknown;
+  on: (event: "data", listener: (chunk: Buffer | string) => void) => unknown;
+  off: (event: "data", listener: (chunk: Buffer | string) => void) => unknown;
+};
+
+type WaitForCwdChangeOptions = {
+  cwd?: string;
+  input?: KeyInputStream;
+  onKeyPress?: (key: string) => void;
+};
+
+async function waitForCwdChange(
+  cwdOrOptions: string | WaitForCwdChangeOptions = process.cwd(),
+): Promise<void> {
+  const options = typeof cwdOrOptions === "string" ? { cwd: cwdOrOptions } : cwdOrOptions;
+  const cwd = options.cwd ?? process.cwd();
+
   return new Promise((resolve) => {
     let settled = false;
     let debounce: ReturnType<typeof setTimeout> | undefined;
     let watcher: FSWatcher | undefined;
     let interval: ReturnType<typeof setInterval> | undefined;
+    const cleanupKeyPress = listenForKeyPress(options.input ?? process.stdin, options.onKeyPress);
 
     const done = () => {
       if (settled) {
@@ -26,6 +47,7 @@ async function waitForCwdChange(cwd = process.cwd()): Promise<void> {
         clearInterval(interval);
       }
 
+      cleanupKeyPress();
       resolve();
     };
 
@@ -67,6 +89,42 @@ async function waitForCwdChange(cwd = process.cwd()): Promise<void> {
       startPolling();
     }
   });
+}
+
+function listenForKeyPress(input: KeyInputStream, onKeyPress?: (key: string) => void) {
+  if (!onKeyPress || !input.isTTY || typeof input.setRawMode !== "function") {
+    return () => {};
+  }
+
+  const wasRaw = Boolean(input.isRaw);
+  const onData = (chunk: Buffer | string) => {
+    for (const key of chunk.toString("utf8")) {
+      if (key === "\u0003") {
+        input.setRawMode?.(false);
+        process.kill(process.pid, "SIGINT");
+        return;
+      }
+
+      onKeyPress(key);
+    }
+  };
+
+  try {
+    input.setRawMode(true);
+  } catch {
+    return () => {};
+  }
+
+  input.resume();
+  input.on("data", onData);
+
+  return () => {
+    input.off("data", onData);
+
+    if (!wasRaw) {
+      input.setRawMode?.(false);
+    }
+  };
 }
 
 function snapshotDirectory(directory: string): string {
@@ -113,3 +171,4 @@ function walkDirectory(directory: string, entries: string[]) {
 }
 
 export { waitForCwdChange };
+export type { KeyInputStream, WaitForCwdChangeOptions };

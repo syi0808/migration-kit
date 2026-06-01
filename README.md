@@ -8,8 +8,8 @@
 - **Runtime checks** - Verify Node.js, Bun, or Deno availability and semver ranges through commands and common project version files.
 - **Dependency requirements** - Check declared package ranges in `package.json` dependencies, dev dependencies, optional dependencies, and peer dependencies.
 - **Package version updates** - Detect npm, pnpm, Yarn, or Bun and update configured package ranges before transforms run.
-- **Config change handling** - Run a transform against the first matching config file, recheck manual-fix blockers after files change, and prompt for manual confirmations.
-- **API change scanning** - Find files with `tinyglobby`, run transforms, and summarize updated, unchanged, failed, and needs-review files.
+- **Config change handling** - Run a transform against the first matching config file, recheck manual-fix blockers after files change, copy remaining fixes while watching, and prompt for manual confirmations.
+- **API change scanning** - Find files with `tinyglobby`, show progress for large file batches, run transforms, and summarize updated, unchanged, failed, and needs-review files.
 - **Transformer helpers** - Wrap `jscodeshift` and `ast-grep` transforms behind the shared `Transformer` result contract.
 
 ## Getting Started
@@ -78,6 +78,8 @@ The runner executes work in this order:
 4. Detect the package manager, update configured package ranges from the migration `from` range to the `to` range, and run the package manager install command.
 5. Find the first existing config file from `configPath`, run config transforms, recheck manual-fix blockers after project files change, and prompt for manual confirmations.
 6. Scan API change file globs, run transforms, summarize results, recheck manual-fix blockers after project files change, and prompt for manual confirmations.
+
+When a blocking manual-fix check is waiting with `Watching for project changes`, press `c` to copy the full current fix list to the system clipboard. Large API transform or blocker scans render a live progress line while files are being processed.
 
 ## API
 

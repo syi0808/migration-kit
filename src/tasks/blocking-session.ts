@@ -1,8 +1,9 @@
 import type { createLogUpdate } from "log-update";
 import type { BlockPolicy } from "../types.js";
-import { logStyle } from "../utils/log-style.js";
+import { copyToClipboard } from "../utils/clipboard.js";
+import { logStyle, stripAnsi } from "../utils/log-style.js";
 import { requestManualConfirmation } from "../utils/manual-confirmation.js";
-import { waitForCwdChange } from "../utils/watch.js";
+import { waitForCwdChange, type KeyInputStream } from "../utils/watch.js";
 
 const maxPersistedDetails = 10;
 
@@ -27,9 +28,17 @@ type BlockingSessionOptions = {
   logUpdate: LogUpdate;
   policy: BlockPolicy;
   collectSnapshot: () => BlockingSnapshot | Promise<BlockingSnapshot>;
+  copy?: (text: string) => Promise<void>;
+  input?: KeyInputStream;
 };
 
-async function runBlockingSession({ logUpdate, policy, collectSnapshot }: BlockingSessionOptions) {
+async function runBlockingSession({
+  logUpdate,
+  policy,
+  collectSnapshot,
+  copy = copyToClipboard,
+  input,
+}: BlockingSessionOptions) {
   const confirmed = new Set<string>();
   let hasLoggedManualFixSummary = false;
   let hadManualFixes = false;
@@ -109,15 +118,55 @@ async function runBlockingSession({ logUpdate, policy, collectSnapshot }: Blocki
       }
 
       hadManualFixes = true;
-      renderBlockWatchStatus(logUpdate, currentSnapshot.manualFixes.length);
+      let copyStatus: CopyStatus | null = null;
+      let isWaiting = true;
+      const renderWatchStatus = () => {
+        renderBlockWatchStatus(logUpdate, currentSnapshot.manualFixes.length, copyStatus);
+      };
+
+      renderWatchStatus();
 
       try {
-        await waitForCwdChange();
+        await waitForCwdChange({
+          ...(input ? { input } : {}),
+          onKeyPress: (key) => {
+            if (key !== "c" && key !== "C") {
+              return;
+            }
+
+            void copyManualFixes(currentSnapshot.manualFixes, copy)
+              .then(() => {
+                copyStatus = { status: "success", count: currentSnapshot.manualFixes.length };
+              })
+              .catch((error: unknown) => {
+                copyStatus = { status: "failure", reason: formatError(error) };
+              })
+              .finally(() => {
+                if (isWaiting) {
+                  renderWatchStatus();
+                }
+              });
+          },
+        });
       } finally {
+        isWaiting = false;
         logUpdate.clear();
       }
     }
   }
+}
+
+type CopyStatus = { status: "success"; count: number } | { status: "failure"; reason: string };
+
+async function copyManualFixes(manualFixes: BlockingItem[], copy: (text: string) => Promise<void>) {
+  await copy(formatManualFixClipboardText(manualFixes));
+}
+
+function formatManualFixClipboardText(manualFixes: BlockingItem[]) {
+  return [
+    `${manualFixes.length} ${pluralize(manualFixes.length, "manual fix", "manual fixes")} remaining:`,
+    ...manualFixes.map((fix) => `- ${stripAnsi(fix.detail)}`),
+  ].join("\n");
 }
 
 async function requestConfirmations(logUpdate: LogUpdate, confirmations: BlockingConfirmation[]) {
@@ -257,17 +306,40 @@ function onlyConfirmations(snapshot: BlockingSnapshot): BlockingSnapshot {
   };
 }
 
-function renderBlockWatchStatus(logUpdate: LogUpdate, manualFixCount: number) {
-  logUpdate(
+function renderBlockWatchStatus(
+  logUpdate: LogUpdate,
+  manualFixCount: number,
+  copyStatus: CopyStatus | null,
+) {
+  const lines = [
     logStyle.info(
       `Watching for project changes (${manualFixCount} ${pluralize(
         manualFixCount,
         "manual fix",
         "manual fixes",
-      )} remaining).`,
+      )} remaining). Press c to copy fixes.`,
       2,
     ),
-  );
+  ];
+
+  if (copyStatus?.status === "success") {
+    lines.push(
+      logStyle.success(
+        `Copied ${copyStatus.count} ${pluralize(copyStatus.count, "fix", "fixes")} to clipboard.`,
+        2,
+      ),
+    );
+  }
+
+  if (copyStatus?.status === "failure") {
+    lines.push(logStyle.warning(`Clipboard copy failed: ${copyStatus.reason}`, 2));
+  }
+
+  logUpdate(lines.join("\n"));
+}
+
+function formatError(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function hasBlockingItems(snapshot: BlockingSnapshot) {

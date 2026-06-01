@@ -84,6 +84,79 @@ describe("apiChangesTask", () => {
     expect(messages).toEqual(["  → Update tests", "    - No files matched"]);
   });
 
+  it("renders progress while running transforms across many files", async () => {
+    const messages: string[] = [];
+    const liveMessages: string[] = [];
+    const logUpdate = createTestLogUpdate(messages, liveMessages);
+    const cwd = createProject(
+      Object.fromEntries(Array.from({ length: 20 }, (_, index) => [`src/${index}.ts`, "a"])),
+    );
+
+    process.chdir(cwd);
+
+    await apiChangesTask(logUpdate, [
+      {
+        title: "Scan source files",
+        files: ["src/**/*.ts"],
+        transform: (filePath) => ({ status: "unchanged", filePath }),
+      },
+    ]);
+
+    expect(liveMessages[0]).toBe(
+      "    → Running transforms [--------------------] 0/20 files\n      src/0.ts",
+    );
+    expect(liveMessages.at(-1)).toBe(
+      "    → Running transforms [####################] 20/20 files\n      src/9.ts",
+    );
+    expect(messages).toEqual(["  → Scan source files", "    ✓ 20 unchanged"]);
+  });
+
+  it("renders progress while checking blockers across many files", async () => {
+    const messages: string[] = [];
+    const liveMessages: string[] = [];
+    const logUpdate = createTestLogUpdate(messages, liveMessages);
+    const cwd = createProject(
+      Object.fromEntries(Array.from({ length: 20 }, (_, index) => [`src/${index}.ts`, "oldApi()"])),
+    );
+
+    process.chdir(cwd);
+
+    await apiChangesTask(logUpdate, [
+      {
+        title: "Review source files",
+        policy: "advisory",
+        files: ["src/**/*.ts"],
+        shouldBlock: (filePath) => {
+          return readFileSync(filePath, "utf8").includes("oldApi")
+            ? { reason: "Replace oldApi with newApi" }
+            : false;
+        },
+      },
+    ]);
+
+    expect(liveMessages[0]).toBe(
+      "    → Checking blockers [--------------------] 0/20 files\n      src/0.ts",
+    );
+    expect(liveMessages.at(-1)).toBe(
+      "    → Checking blockers [####################] 20/20 files\n      src/9.ts",
+    );
+    expect(messages).toEqual([
+      "  → Review source files",
+      "    ! 20 advisories",
+      "      src/0.ts: Replace oldApi with newApi",
+      "      src/1.ts: Replace oldApi with newApi",
+      "      src/10.ts: Replace oldApi with newApi",
+      "      src/11.ts: Replace oldApi with newApi",
+      "      src/12.ts: Replace oldApi with newApi",
+      "      src/13.ts: Replace oldApi with newApi",
+      "      src/14.ts: Replace oldApi with newApi",
+      "      src/15.ts: Replace oldApi with newApi",
+      "      src/16.ts: Replace oldApi with newApi",
+      "      src/17.ts: Replace oldApi with newApi",
+      "      ... 10 more items hidden",
+    ]);
+  });
+
   it("keeps recheck details out of permanent logs while blockers are fixed", async () => {
     const messages: string[] = [];
     const liveMessages: string[] = [];
@@ -125,8 +198,8 @@ describe("apiChangesTask", () => {
       "    ✓ Resolved",
     ]);
     expect(liveMessages).toEqual([
-      "    → Watching for project changes (2 manual fixes remaining).",
-      "    → Watching for project changes (1 manual fix remaining).",
+      "    → Watching for project changes (2 manual fixes remaining). Press c to copy fixes.",
+      "    → Watching for project changes (1 manual fix remaining). Press c to copy fixes.",
     ]);
   });
 
@@ -267,7 +340,7 @@ describe("apiChangesTask", () => {
     ]);
     expect(liveMessages).toEqual([
       "    ! 1 confirmation required\n      src/a.ts: Verify mock cleanup expectations.",
-      "    → Watching for project changes (1 manual fix remaining).",
+      "    → Watching for project changes (1 manual fix remaining). Press c to copy fixes.",
     ]);
   });
 
@@ -349,7 +422,7 @@ describe("apiChangesTask", () => {
       "    ✓ Resolved",
     ]);
     expect(liveMessages).toEqual([
-      "    → Watching for project changes (12 manual fixes remaining).",
+      "    → Watching for project changes (12 manual fixes remaining). Press c to copy fixes.",
     ]);
   });
 
