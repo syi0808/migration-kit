@@ -1,8 +1,10 @@
 import type { createLogUpdate } from "log-update";
 import type { BlockPolicy } from "../types.js";
 import { copyToClipboard } from "../utils/clipboard.js";
+import { formatError } from "../utils/error.js";
 import { logStyle, stripAnsi } from "../utils/log-style.js";
 import { requestManualConfirmation } from "../utils/manual-confirmation.js";
+import { pluralize } from "../utils/strings.js";
 import { waitForCwdChange, type KeyInputStream } from "../utils/watch.js";
 
 const maxPersistedDetails = 10;
@@ -338,20 +340,12 @@ function renderBlockWatchStatus(
   logUpdate(lines.join("\n"));
 }
 
-function formatError(error: unknown) {
-  return error instanceof Error ? error.message : String(error);
-}
-
 function hasBlockingItems(snapshot: BlockingSnapshot) {
   return (
     snapshot.manualFixes.length > 0 ||
     snapshot.confirmations.length > 0 ||
     snapshot.failures.length > 0
   );
-}
-
-function pluralize(count: number, singular: string, plural: string) {
-  return count === 1 ? singular : plural;
 }
 
 export { runBlockingSession };

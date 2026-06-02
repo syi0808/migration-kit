@@ -1,13 +1,15 @@
 import type { createLogUpdate } from "log-update";
-import { isAbsolute, relative } from "node:path";
-import type { BlockFinding, ResolvedConfigChange, TransformResult, Transformer } from "../types.js";
+import type { ResolvedConfigChange, TransformResult } from "../types.js";
 import { logStyle } from "../utils/log-style.js";
+import { formatPlainPath } from "../utils/path-format.js";
+import { runBlockCheck, type NormalizedBlockFinding } from "./block-check.js";
 import {
   runBlockingSession,
   type BlockingConfirmation,
   type BlockingItem,
   type BlockingSnapshot,
 } from "./blocking-session.js";
+import { runTransform } from "./transform.js";
 
 async function configChangesTask(
   logUpdate: ReturnType<typeof createLogUpdate>,
@@ -96,58 +98,10 @@ function collectBlockSummary(check: ResolvedConfigChange, configPath: string): B
   return snapshot;
 }
 
-type BlockCheckResult =
-  | { status: "passed" }
-  | { status: "blocked"; findings: NormalizedBlockFinding[] }
-  | { status: "failed"; reason: string };
-
-type ManualFixFinding = { kind: "manual-fix"; reason: string };
-type ManualConfirmationFinding = {
-  kind: "manual-confirmation";
-  reason: string;
-  prompt?: string;
-};
-type NormalizedBlockFinding = ManualFixFinding | ManualConfirmationFinding;
-
-async function runTransform(transform: Transformer, filePath: string): Promise<TransformResult> {
-  try {
-    return await transform(filePath);
-  } catch (error) {
-    return { status: "failed", filePath, reason: formatError(error) };
-  }
-}
-
-function runBlockCheck(
-  shouldBlock: NonNullable<ResolvedConfigChange["shouldBlock"]>,
-  filePath: string,
-): BlockCheckResult {
-  try {
-    const result = shouldBlock(filePath);
-    const findings = result ? normalizeBlockFindings(result) : [];
-
-    return findings.length > 0 ? { status: "blocked", findings } : { status: "passed" };
-  } catch (error) {
-    return { status: "failed", reason: formatError(error) };
-  }
-}
-
-function normalizeBlockFindings(finding: BlockFinding | BlockFinding[]): NormalizedBlockFinding[] {
-  const findings = Array.isArray(finding) ? finding : [finding];
-
-  return findings.map(normalizeBlockFinding);
-}
-
-function normalizeBlockFinding(finding: BlockFinding): NormalizedBlockFinding {
-  if (finding.kind === "manual-confirmation") {
-    return {
-      kind: "manual-confirmation",
-      reason: finding.reason,
-      ...(finding.prompt ? { prompt: finding.prompt } : {}),
-    };
-  }
-
-  return { kind: "manual-fix", reason: finding.reason };
-}
+type ManualConfirmationFinding = Extract<
+  NormalizedBlockFinding,
+  { kind: "manual-confirmation" }
+>;
 
 function isManualConfirmationFinding(
   finding: NormalizedBlockFinding,
@@ -188,16 +142,6 @@ function createManualConfirmation(
   };
 }
 
-function formatPlainPath(filePath: string) {
-  const relativePath = relative(process.cwd(), filePath);
-
-  if (!relativePath || relativePath.startsWith("..") || isAbsolute(relativePath)) {
-    return filePath;
-  }
-
-  return relativePath;
-}
-
 function logTransformResult(
   logUpdate: ReturnType<typeof createLogUpdate>,
   result: TransformResult,
@@ -220,10 +164,6 @@ function logTransformResult(
 
   logUpdate.persist(logStyle.error("Failed", 2));
   logUpdate.persist(logStyle.detail(result.reason, 3));
-}
-
-function formatError(error: unknown) {
-  return error instanceof Error ? error.message : String(error);
 }
 
 export { configChangesTask };

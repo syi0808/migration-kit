@@ -1,5 +1,6 @@
 import type { createLogUpdate } from "log-update";
 import { logStyle } from "./log-style.js";
+import { pluralize } from "./strings.js";
 
 const defaultMinimumItems = 20;
 const defaultRenderIntervalMs = 80;
@@ -66,10 +67,6 @@ function formatProgressLine(label: string, completed: number, total: number) {
   const bar = `${"#".repeat(filled)}${"-".repeat(empty)}`;
 
   return `${label} [${bar}] ${safeCompleted}/${total} ${pluralize(total, "file", "files")}`;
-}
-
-function pluralize(count: number, singular: string, plural: string) {
-  return count === 1 ? singular : plural;
 }
 
 export { createProgressTui };

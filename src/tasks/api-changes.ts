@@ -1,15 +1,23 @@
 import type { createLogUpdate } from "log-update";
-import { isAbsolute, relative } from "node:path";
 import { glob } from "tinyglobby";
-import type { BlockFinding, ResolvedApiChange, TransformResult, Transformer } from "../types.js";
+import type { ResolvedApiChange, TransformResult } from "../types.js";
 import { logStyle } from "../utils/log-style.js";
+import {
+  formatFileResult,
+  formatPlainFileResult,
+  formatPlainPath,
+  formatProgressPath,
+} from "../utils/path-format.js";
 import { createProgressTui } from "../utils/progress.js";
+import { pluralize } from "../utils/strings.js";
+import { runBlockCheck, type NormalizedBlockFinding } from "./block-check.js";
 import {
   runBlockingSession,
   type BlockingConfirmation,
   type BlockingItem,
   type BlockingSnapshot,
 } from "./blocking-session.js";
+import { runTransform } from "./transform.js";
 
 async function apiChangesTask(
   logUpdate: ReturnType<typeof createLogUpdate>,
@@ -77,15 +85,6 @@ type Summary = {
   needsReview: Array<{ filePath: string; reason: string }>;
   failed: Array<{ filePath: string; reason: string }>;
 };
-
-type NormalizedBlockFinding =
-  | { kind: "manual-fix"; reason: string }
-  | { kind: "manual-confirmation"; reason: string; prompt?: string };
-
-type BlockCheckStatus =
-  | { status: "passed" }
-  | { status: "blocked"; findings: NormalizedBlockFinding[] }
-  | { status: "failed"; reason: string };
 
 async function findFiles(patterns: string[]) {
   const filePaths = await glob(patterns, {
@@ -178,46 +177,6 @@ async function collectBlockSummary(
   return snapshot;
 }
 
-async function runTransform(transform: Transformer, filePath: string): Promise<TransformResult> {
-  try {
-    return await transform(filePath);
-  } catch (error) {
-    return { status: "failed", filePath, reason: formatError(error) };
-  }
-}
-
-function runBlockCheck(
-  shouldBlock: NonNullable<ResolvedApiChange["shouldBlock"]>,
-  filePath: string,
-): BlockCheckStatus {
-  try {
-    const result = shouldBlock(filePath);
-    const findings = result ? normalizeBlockFindings(result) : [];
-
-    return findings.length > 0 ? { status: "blocked", findings } : { status: "passed" };
-  } catch (error) {
-    return { status: "failed", reason: formatError(error) };
-  }
-}
-
-function normalizeBlockFindings(finding: BlockFinding | BlockFinding[]): NormalizedBlockFinding[] {
-  const findings = Array.isArray(finding) ? finding : [finding];
-
-  return findings.map(normalizeBlockFinding);
-}
-
-function normalizeBlockFinding(finding: BlockFinding): NormalizedBlockFinding {
-  if (finding.kind === "manual-confirmation") {
-    return {
-      kind: "manual-confirmation",
-      reason: finding.reason,
-      ...(finding.prompt ? { prompt: finding.prompt } : {}),
-    };
-  }
-
-  return { kind: "manual-fix", reason: finding.reason };
-}
-
 function recordTransformResult(summary: Summary, result: TransformResult) {
   if (result.status === "updated") {
     summary.updated += 1;
@@ -268,10 +227,6 @@ function logTransformSummary(logUpdate: ReturnType<typeof createLogUpdate>, summ
   }
 }
 
-function pluralize(count: number, singular: string, plural: string) {
-  return count === 1 ? singular : plural;
-}
-
 function createManualFix(filePath: string, reason: string): BlockingItem {
   return {
     key: `fix:${filePath}\0${reason}`,
@@ -291,10 +246,6 @@ function createManualConfirmation(
   };
 }
 
-function formatFileResult(filePath: string, reason: string) {
-  return `${logStyle.path(relative(process.cwd(), filePath) || filePath)}: ${reason}`;
-}
-
 function createManualConfirmationPrompt(
   title: string,
   filePath: string,
@@ -310,28 +261,6 @@ function createManualConfirmationPrompt(
     filePath,
     confirmation.reason,
   )} before continuing.`;
-}
-
-function formatPlainFileResult(filePath: string, reason: string) {
-  return `${formatPlainPath(filePath)}: ${reason}`;
-}
-
-function formatPlainPath(filePath: string) {
-  const relativePath = relative(process.cwd(), filePath);
-
-  if (!relativePath || relativePath.startsWith("..") || isAbsolute(relativePath)) {
-    return filePath;
-  }
-
-  return relativePath;
-}
-
-function formatProgressPath(filePath: string | undefined) {
-  return filePath ? formatPlainPath(filePath) : undefined;
-}
-
-function formatError(error: unknown) {
-  return error instanceof Error ? error.message : String(error);
 }
 
 export { apiChangesTask };

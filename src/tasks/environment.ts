@@ -1,5 +1,6 @@
 import type { createLogUpdate } from "log-update";
 import type { EnvironmentRequirementCheck, EnvironmentRequirementResult } from "../types.js";
+import { formatError } from "../utils/error.js";
 import { logStyle } from "../utils/log-style.js";
 
 async function environmentTask(
@@ -60,10 +61,6 @@ function formatResultEvidence(
   }
 
   return `${message} (${result.evidence.join("; ")})`;
-}
-
-function formatError(error: unknown) {
-  return error instanceof Error ? error.message : String(error);
 }
 
 export { environmentTask };
