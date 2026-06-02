@@ -3,6 +3,7 @@ import { join } from "node:path";
 import type { createLogUpdate } from "log-update";
 import type { PeerDependency } from "../types.js";
 import { logStyle } from "../utils/log-style.js";
+import type { DependencyCheckResult, PackageJson } from "./dependencies.types.js";
 import semver from "semver";
 
 function dependenciesTask(
@@ -28,18 +29,6 @@ function dependenciesTask(
     throw new Error("Dependency requirements were not met.");
   }
 }
-
-type PackageJson = {
-  dependencies?: Record<string, unknown>;
-  devDependencies?: Record<string, unknown>;
-  optionalDependencies?: Record<string, unknown>;
-  peerDependencies?: Record<string, unknown>;
-};
-
-type DependencyCheckResult = {
-  satisfied: boolean;
-  message: string;
-};
 
 function checkPeerDependency(
   packageJson: PackageJson | null,

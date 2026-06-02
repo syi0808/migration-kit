@@ -17,6 +17,7 @@ import {
   type BlockingItem,
   type BlockingSnapshot,
 } from "./blocking-session.js";
+import type { Summary } from "./api-changes.types.js";
 import { runTransform } from "./transform.js";
 
 async function apiChangesTask(
@@ -78,13 +79,6 @@ async function apiChangesTask(
     throw new Error("API changes require attention.");
   }
 }
-
-type Summary = {
-  updated: number;
-  unchanged: number;
-  needsReview: Array<{ filePath: string; reason: string }>;
-  failed: Array<{ filePath: string; reason: string }>;
-};
 
 async function findFiles(patterns: string[]): Promise<string[]> {
   const filePaths = await glob(patterns, {

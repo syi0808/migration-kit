@@ -6,57 +6,17 @@ import {
   readMigrationFile,
   writeMigrationFile,
 } from "../migration-runtime.js";
+import type {
+  JscodeshiftApi,
+  JscodeshiftCore,
+  JscodeshiftOptions,
+  JscodeshiftParseOptions,
+  JscodeshiftParseResult,
+  JscodeshiftParser,
+  JscodeshiftTransform,
+} from "./jscodeshift.types.js";
 
 const require = createRequire(import.meta.url);
-
-export type JscodeshiftParser =
-  | "babel"
-  | "babylon"
-  | "flow"
-  | "ts"
-  | "tsx"
-  | {
-      parse(source: string): unknown;
-    };
-
-export interface JscodeshiftFileInfo {
-  path: string;
-  source: string;
-}
-
-export type JscodeshiftCore = ((source: string, options?: unknown) => any) & {
-  withParser(parser: JscodeshiftParser): JscodeshiftCore;
-  [key: string]: any;
-};
-
-export interface JscodeshiftApi {
-  j: JscodeshiftCore;
-  jscodeshift: JscodeshiftCore;
-  stats(name: string, quantity?: number): void;
-  report(message: string): void;
-}
-
-export interface JscodeshiftOptions {
-  parser?: JscodeshiftParser;
-  transformOptions?: Record<string, unknown>;
-  stats?: (name: string, quantity: number, filePath: string) => void;
-  report?: (message: string, filePath: string) => void;
-}
-
-export type JscodeshiftTransform = (
-  fileInfo: JscodeshiftFileInfo,
-  api: JscodeshiftApi,
-  options: Record<string, unknown>,
-) => Promise<string | null | undefined | void> | string | null | undefined | void;
-
-export interface JscodeshiftParseOptions {
-  parser?: JscodeshiftParser;
-}
-
-export type JscodeshiftParseResult = {
-  j: JscodeshiftCore;
-  root: ReturnType<JscodeshiftCore>;
-};
 
 function jscodeshift(
   transform: JscodeshiftTransform,
@@ -159,3 +119,13 @@ function getErrorMessage(error: unknown): string {
 }
 
 export { jscodeshift, parseJscodeshiftSourceForScan };
+export type {
+  JscodeshiftApi,
+  JscodeshiftCore,
+  JscodeshiftFileInfo,
+  JscodeshiftOptions,
+  JscodeshiftParseOptions,
+  JscodeshiftParseResult,
+  JscodeshiftParser,
+  JscodeshiftTransform,
+} from "./jscodeshift.types.js";

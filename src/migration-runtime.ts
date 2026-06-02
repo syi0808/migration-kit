@@ -1,22 +1,11 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { readFileSync, statSync, writeFileSync, type Stats } from "node:fs";
 import { readFile, stat, writeFile } from "node:fs/promises";
-
-type SourceCacheEntry = {
-  source: string;
-  mtimeMs: number;
-  size: number;
-};
-
-type ArtifactCacheEntry = {
-  source: string;
-  value: unknown;
-};
-
-type MigrationRuntimeOptions = {
-  maxSourceEntries?: number;
-  maxArtifactEntries?: number;
-};
+import type {
+  ArtifactCacheEntry,
+  MigrationRuntimeOptions,
+  SourceCacheEntry,
+} from "./migration-runtime.types.js";
 
 class MigrationRuntime {
   readonly #maxSourceEntries: number;

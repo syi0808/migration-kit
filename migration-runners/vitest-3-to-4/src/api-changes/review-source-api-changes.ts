@@ -1,12 +1,7 @@
 import { readMigrationFileSync, type ApiChange, type BlockCheckResult } from "migration-kit";
 import { sourceFilePatterns } from "../patterns.js";
 import { parseSource } from "../utils/jscodeshift.js";
-
-type SourceReviewFinding = {
-  kind: "manual-fix" | "manual-confirmation";
-  reason: string;
-  prompt?: string;
-};
+import type { SourceReviewFinding } from "./review-source-api-changes.types.js";
 
 const reviewSourceApiChanges: ApiChange = {
   title: "Review Vitest 4 source API changes",

@@ -2,14 +2,10 @@ import { transformer } from "migration-kit";
 import type { ApiChange, JscodeshiftCore, Transformer } from "migration-kit";
 import { sourceFilePatterns } from "../patterns.js";
 import { type NodePath } from "../utils/jscodeshift.js";
+import type { BrowserUtilsNamedImport } from "./update-browser-utils-imports.types.js";
 
 const browserUtilsModule = "@vitest/browser/utils";
 const browserModule = "vitest/browser";
-
-type BrowserUtilsNamedImport = {
-  importedName: string;
-  localName: string;
-};
 
 const updateBrowserUtilsImports: ApiChange = {
   title: "Update @vitest/browser utils imports",

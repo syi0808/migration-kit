@@ -1,9 +1,5 @@
 import { createColors } from "tinyrainbow";
-
-type LogEnvironment = Record<string, string | undefined>;
-type LogOutputStream = {
-  isTTY?: boolean;
-};
+import type { ColorOptions } from "./log-style.types.js";
 
 const colors = createColors({
   force: shouldUseColor({
@@ -19,11 +15,7 @@ function formatCliError(error: unknown): string {
   return `  ${colors.red("✗")} ${message}`;
 }
 
-function shouldUseColor(options: {
-  argv: readonly string[];
-  env: LogEnvironment;
-  stream: LogOutputStream;
-}): boolean {
+function shouldUseColor(options: ColorOptions): boolean {
   const forceColor = options.env.FORCE_COLOR;
 
   if (

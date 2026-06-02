@@ -1,10 +1,5 @@
 import { readMigrationFileSync, type BlockCheckResult, type ConfigChange } from "migration-kit";
-
-type DeprecatedConfigFinding = {
-  kind: "manual-fix" | "manual-confirmation";
-  reason: string;
-  prompt?: string;
-};
+import type { DeprecatedConfigFinding } from "./deprecated-config.types.js";
 
 const deprecatedConfigChange: ConfigChange = {
   title: "Review removed Vitest 4 config options",

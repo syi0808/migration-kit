@@ -6,6 +6,11 @@ import type {
   EnvironmentRequirementResult,
   RuntimeRequirementOptions,
 } from "../types.js";
+import type {
+  PackageJson,
+  ProjectRuntimeRequirement,
+  RuntimeVersionLookup,
+} from "./check-runtime.types.js";
 import semver from "semver";
 
 const SEMVER_PATTERN = /v?(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?)/;
@@ -21,29 +26,6 @@ const VERSION_FILES: Record<string, string[]> = {
   deno: [".deno-version"],
   node: [".nvmrc", ".node-version"],
 };
-
-type PackageJson = {
-  devEngines?: unknown;
-  engines?: Record<string, unknown>;
-  packageManager?: unknown;
-  volta?: Record<string, unknown>;
-};
-
-type ProjectRuntimeRequirement = {
-  source: string;
-  version: string;
-};
-
-type RuntimeVersionLookup =
-  | {
-      evidence: string;
-      status: "found";
-      version: string;
-    }
-  | {
-      evidence: string;
-      status: "missing";
-    };
 
 function createRuntimeCheck(
   runtimeName: string,

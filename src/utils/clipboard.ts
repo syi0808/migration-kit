@@ -1,10 +1,6 @@
 import { spawn } from "node:child_process";
 import { formatError } from "./error.js";
-
-type ClipboardCommand = {
-  command: string;
-  args: string[];
-};
+import type { ClipboardCommand } from "./clipboard.types.js";
 
 async function copyToClipboard(text: string): Promise<void> {
   const commands = getClipboardCommands();

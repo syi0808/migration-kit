@@ -9,6 +9,7 @@ import {
   type BlockingItem,
   type BlockingSnapshot,
 } from "./blocking-session.js";
+import type { ManualConfirmationFinding } from "./config-changes.types.js";
 import { runTransform } from "./transform.js";
 
 async function configChangesTask(
@@ -97,8 +98,6 @@ function collectBlockSummary(check: ResolvedConfigChange, configPath: string): B
 
   return snapshot;
 }
-
-type ManualConfirmationFinding = Extract<NormalizedBlockFinding, { kind: "manual-confirmation" }>;
 
 function isManualConfirmationFinding(
   finding: NormalizedBlockFinding,

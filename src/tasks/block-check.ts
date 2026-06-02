@@ -1,16 +1,6 @@
-import type { BlockCheckResult, BlockFinding } from "../types.js";
+import type { BlockFinding } from "../types.js";
 import { formatError } from "../utils/error.js";
-
-type BlockCheck = (filePath: string) => BlockCheckResult;
-
-type NormalizedBlockFinding =
-  | { kind: "manual-fix"; reason: string }
-  | { kind: "manual-confirmation"; reason: string; prompt?: string };
-
-type BlockCheckStatus =
-  | { status: "passed" }
-  | { status: "blocked"; findings: NormalizedBlockFinding[] }
-  | { status: "failed"; reason: string };
+import type { BlockCheck, BlockCheckStatus, NormalizedBlockFinding } from "./block-check.types.js";
 
 function runBlockCheck(shouldBlock: BlockCheck, filePath: string): BlockCheckStatus {
   try {

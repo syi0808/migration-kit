@@ -1,41 +1,14 @@
 import { createRequire } from "node:module";
 import type { Transformer, TransformResult } from "../types.js";
 import { readMigrationFile, writeMigrationFile } from "../migration-runtime.js";
+import type {
+  AstGrepMatch,
+  AstGrepMatcher,
+  AstGrepOptions,
+  AstGrepReplacement,
+} from "./ast-grep.types.js";
 
 const require = createRequire(import.meta.url);
-
-export interface AstGrepMatch {
-  filePath: string;
-  index: number;
-  source: string;
-  text: string;
-  context: string;
-  start: number;
-  end: number;
-  node: unknown;
-}
-
-export type AstGrepReplacement = string | ((match: AstGrepMatch) => string | null | undefined);
-
-export interface AstGrepOptions {
-  pattern: string;
-  anonymous?: boolean;
-  replace?: AstGrepReplacement;
-  reason?: string | ((matches: AstGrepMatch[]) => string);
-}
-
-type AstGrepMatcher = (
-  source: string,
-  options: { pattern: string; anonymous?: boolean },
-) => RawAstGrepMatch[];
-
-type RawAstGrepMatch = {
-  text: string;
-  node: {
-    start?: unknown;
-    end?: unknown;
-  };
-};
 
 function astGrep(pattern: string, options?: Omit<AstGrepOptions, "pattern">): Transformer;
 function astGrep(options: AstGrepOptions): Transformer;
@@ -150,3 +123,4 @@ function getErrorMessage(error: unknown): string {
 }
 
 export { astGrep };
+export type { AstGrepMatch, AstGrepOptions, AstGrepReplacement };

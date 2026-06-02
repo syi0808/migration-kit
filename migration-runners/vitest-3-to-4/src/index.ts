@@ -7,8 +7,6 @@ import { configPaths } from "./patterns.js";
 import { formatCliError } from "./utils/log-style.js";
 import { vitestFamilyPackages } from "./utils/package-json.js";
 
-type MigrationRunner = ReturnType<typeof createMigrationRunner>;
-
 const vitestPackageVersionUpdates = [
   { dependency: "vitest", from: "3.x", to: "4.x" },
   ...vitestFamilyPackages
@@ -20,7 +18,7 @@ const vitestPackageVersionUpdates = [
     })),
 ] satisfies PackageVersionUpdate[];
 
-function createVitest3To4MigrationRunner(): MigrationRunner {
+function createVitest3To4MigrationRunner(): ReturnType<typeof createMigrationRunner> {
   return createMigrationRunner({
     name: "Vitest 3 to 4 Migration",
     from: "3.x",

@@ -7,13 +7,28 @@ import type { createLogUpdate } from "log-update";
 import semver from "semver";
 import type { ResolvedPackageVersionUpdate } from "../types.js";
 import { logStyle, stripAnsi } from "../utils/log-style.js";
+import type {
+  DependencyField,
+  DependencyMatch,
+  InstallOutputHandler,
+  InstallOutputPreview,
+  InstallOutputPreviewState,
+  PackageJson,
+  PackageJsonSource,
+  PackageManager,
+  PackageManagerDetection,
+  PackageVersionTaskOptions,
+  PackageVersionUpdateResult,
+  ResolvePackageVersion,
+  RunPackageManagerInstall,
+} from "./package-version.types.js";
 
 const dependencyFields = [
   "dependencies",
   "devDependencies",
   "optionalDependencies",
   "peerDependencies",
-] as const;
+] satisfies readonly DependencyField[];
 
 const packageManagerLockfiles = [
   { fileName: "pnpm-lock.yaml", packageManager: "pnpm" },
@@ -22,75 +37,7 @@ const packageManagerLockfiles = [
   { fileName: "npm-shrinkwrap.json", packageManager: "npm" },
   { fileName: "bun.lock", packageManager: "bun" },
   { fileName: "bun.lockb", packageManager: "bun" },
-] as const;
-
-type DependencyField = (typeof dependencyFields)[number];
-type PackageManager = "npm" | "pnpm" | "yarn" | "bun";
-
-type PackageJson = {
-  packageManager?: unknown;
-} & {
-  [field in DependencyField]?: Record<string, unknown>;
-};
-
-type PackageVersionTaskOptions = {
-  cwd?: string;
-  runInstall?: RunPackageManagerInstall;
-  resolvePackageVersion?: ResolvePackageVersion;
-};
-
-type InstallOutputHandler = (chunk: string) => void;
-type RunPackageManagerInstall = (
-  packageManager: PackageManager,
-  cwd: string,
-  onOutput?: InstallOutputHandler,
-) => Promise<void>;
-type ResolvePackageVersion = (dependency: string, versionRange: string) => Promise<string | null>;
-
-type PackageManagerDetection = {
-  packageManager: PackageManager;
-  source: string;
-};
-
-type PackageVersionUpdateResult =
-  | {
-      status: "updated";
-      dependency: string;
-      field: DependencyField;
-      currentVersion: string;
-      nextVersion: string;
-    }
-  | {
-      status: "unchanged";
-      dependency: string;
-      reason: string;
-    }
-  | {
-      status: "failed";
-      dependency: string;
-      reason: string;
-    };
-
-type PackageJsonSource = {
-  packageJson: PackageJson;
-  source: string;
-};
-
-type DependencyMatch = {
-  field: DependencyField;
-  dependencies: Record<string, unknown>;
-};
-
-type InstallOutputPreviewState = {
-  lines: string[];
-  currentLine: string;
-};
-
-type InstallOutputPreview = {
-  append(chunk: string): void;
-  clear(): void;
-  render(): void;
-};
+] satisfies ReadonlyArray<{ fileName: string; packageManager: PackageManager }>;
 
 async function packageVersionTask(
   logUpdate: ReturnType<typeof createLogUpdate>,

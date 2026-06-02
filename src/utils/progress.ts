@@ -1,29 +1,15 @@
-import type { createLogUpdate } from "log-update";
 import { logStyle } from "./log-style.js";
 import { pluralize } from "./strings.js";
+import type {
+  LogUpdate,
+  ProgressTui,
+  ProgressTuiOptions,
+  RenderOptions,
+} from "./progress.types.js";
 
 const defaultMinimumItems = 20;
 const defaultRenderIntervalMs = 80;
 const progressBarWidth = 20;
-
-type LogUpdate = ReturnType<typeof createLogUpdate>;
-
-type ProgressTuiOptions = {
-  label: string;
-  total: number;
-  minimumItems?: number;
-  renderIntervalMs?: number;
-};
-
-type RenderOptions = {
-  force?: boolean;
-};
-
-type ProgressTui = {
-  clear(): void;
-  enabled: boolean;
-  render(completed: number, currentItem?: string, renderOptions?: RenderOptions): void;
-};
 
 function createProgressTui(logUpdate: LogUpdate, options: ProgressTuiOptions): ProgressTui {
   const enabled = options.total >= (options.minimumItems ?? defaultMinimumItems);

@@ -1,24 +1,8 @@
 import { readdirSync, statSync, watch, type Dirent, type FSWatcher } from "node:fs";
 import { join } from "node:path";
+import type { Cleanup, KeyInputStream, WaitForCwdChangeOptions } from "./watch.types.js";
 
 const ignoredDirectories = new Set([".git", "node_modules"]);
-
-type KeyInputStream = {
-  isTTY?: boolean;
-  isRaw?: boolean;
-  setRawMode?: (mode: boolean) => unknown;
-  resume: () => unknown;
-  on: (event: "data", listener: (chunk: Buffer | string) => void) => unknown;
-  off: (event: "data", listener: (chunk: Buffer | string) => void) => unknown;
-};
-
-type WaitForCwdChangeOptions = {
-  cwd?: string;
-  input?: KeyInputStream;
-  onKeyPress?: (key: string) => void;
-};
-
-type Cleanup = () => void;
 
 async function waitForCwdChange(
   cwdOrOptions: string | WaitForCwdChangeOptions = process.cwd(),

@@ -1,4 +1,5 @@
 import semver from "semver";
+import type { JsonObject, PackageRangeReviewFinding } from "./package-json.types.js";
 
 const dependencyFields = [
   "dependencies",
@@ -15,8 +16,6 @@ const vitestFamilyPackages = [
   "@vitest/browser-playwright",
   "@vitest/browser-webdriverio",
 ] as const;
-
-type JsonObject = Record<string, unknown>;
 
 function updateDependencyRange(
   dependencies: Record<string, unknown>,
@@ -58,7 +57,7 @@ function getPackageRangeReviewFinding(
   dependencies: Record<string, unknown>,
   packageName: string,
   requiredRange: string,
-): { kind: "manual-fix" | "manual-confirmation"; reason: string } | null {
+): PackageRangeReviewFinding | null {
   const currentRange = dependencies[packageName];
 
   if (typeof currentRange !== "string" || !currentRange) {

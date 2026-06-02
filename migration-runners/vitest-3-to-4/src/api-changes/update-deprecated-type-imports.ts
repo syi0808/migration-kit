@@ -2,17 +2,10 @@ import { transformer } from "migration-kit";
 import type { ApiChange, JscodeshiftCore, Transformer } from "migration-kit";
 import { sourceFilePatterns } from "../patterns.js";
 import { type NodePath } from "../utils/jscodeshift.js";
-
-type DeprecatedTypeReplacement = {
-  name: string;
-  module: "vitest" | "vitest/node";
-};
-
-type ImportToAdd = {
-  importedName: string;
-  localName: string;
-  moduleName: "vitest" | "vitest/node";
-};
+import type {
+  DeprecatedTypeReplacement,
+  ImportToAdd,
+} from "./update-deprecated-type-imports.types.js";
 
 const deprecatedVitestTypes = new Map<string, DeprecatedTypeReplacement>([
   ["SpyInstance", { name: "MockInstance", module: "vitest" }],

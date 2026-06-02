@@ -3,11 +3,7 @@ import {
   type JscodeshiftCore,
   type JscodeshiftParseResult,
 } from "migration-kit";
-
-type NodePath = {
-  node: any;
-  parent?: NodePath | null;
-};
+import type { NodePath } from "./jscodeshift.types.js";
 
 function getObjectPropertyName(node: any): string | null {
   if (!node || node.type !== "ObjectProperty") {

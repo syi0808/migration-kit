@@ -6,11 +6,7 @@ import {
   vitestFamilyPackages,
   type JsonObject,
 } from "../utils/package-json.js";
-
-type PackageJsonReviewFinding = {
-  kind: "manual-fix" | "manual-confirmation";
-  reason: string;
-};
+import type { PackageJsonReviewFinding } from "./review-dependency-package-changes.types.js";
 
 const reviewDependencyPackageChanges: ApiChange = {
   title: "Review Vitest dependency package changes",

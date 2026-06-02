@@ -1,4 +1,3 @@
-import type { createLogUpdate } from "log-update";
 import type { BlockPolicy } from "../types.js";
 import { copyToClipboard } from "../utils/clipboard.js";
 import { formatError } from "../utils/error.js";
@@ -6,33 +5,16 @@ import { logStyle, stripAnsi } from "../utils/log-style.js";
 import { requestManualConfirmation } from "../utils/manual-confirmation.js";
 import { pluralize } from "../utils/strings.js";
 import { waitForCwdChange, type KeyInputStream } from "../utils/watch.js";
+import type {
+  BlockingConfirmation,
+  BlockingItem,
+  BlockingSessionOptions,
+  BlockingSnapshot,
+  CopyStatus,
+  LogUpdate,
+} from "./blocking-session.types.js";
 
 const maxPersistedDetails = 10;
-
-type LogUpdate = ReturnType<typeof createLogUpdate>;
-
-type BlockingItem = {
-  key: string;
-  detail: string;
-};
-
-type BlockingConfirmation = BlockingItem & {
-  prompt: string;
-};
-
-type BlockingSnapshot = {
-  manualFixes: BlockingItem[];
-  confirmations: BlockingConfirmation[];
-  failures: BlockingItem[];
-};
-
-type BlockingSessionOptions = {
-  logUpdate: LogUpdate;
-  policy: BlockPolicy;
-  collectSnapshot: () => BlockingSnapshot | Promise<BlockingSnapshot>;
-  copy?: (text: string) => Promise<void>;
-  input?: KeyInputStream;
-};
 
 /**
  * Re-runs a blocker snapshot until blocking findings are resolved, acknowledged, or failed.
@@ -161,8 +143,6 @@ async function runBlockingSession({
     }
   }
 }
-
-type CopyStatus = { status: "success"; count: number } | { status: "failure"; reason: string };
 
 async function copyManualFixes(
   manualFixes: BlockingItem[],
