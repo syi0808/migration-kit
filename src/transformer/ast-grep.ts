@@ -1,5 +1,5 @@
 import { createRequire } from "node:module";
-import type { Transformer } from "../types.js";
+import type { Transformer, TransformResult } from "../types.js";
 import { readMigrationFile, writeMigrationFile } from "../migration-runtime.js";
 
 const require = createRequire(import.meta.url);
@@ -48,7 +48,7 @@ function astGrep(
       ? { ...options, pattern: patternOrOptions }
       : patternOrOptions;
 
-  return async (filePath) => {
+  return async (filePath): Promise<TransformResult> => {
     try {
       const source = await readMigrationFile(filePath);
       const matches = findMatches(filePath, source, astGrepOptions);
@@ -88,7 +88,7 @@ function findMatches(filePath: string, source: string, options: AstGrepOptions):
     matcherOptions.anonymous = options.anonymous;
   }
 
-  return matcher(source, matcherOptions).map((match, index) => {
+  return matcher(source, matcherOptions).map((match, index): AstGrepMatch => {
     const start = match.node.start;
     const end = match.node.end;
 
@@ -116,7 +116,7 @@ function applyReplacements(
 ): string {
   return [...matches]
     .sort((left, right) => right.start - left.start)
-    .reduce((output, match) => {
+    .reduce((output, match): string => {
       const nextText = typeof replacement === "function" ? replacement(match) : replacement;
 
       if (nextText == null) {

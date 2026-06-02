@@ -22,10 +22,10 @@ const logUpdate = createLogUpdate(process.stdout);
 function createMigrationRunner(options: MigrationRunnerOptions): { run: () => Promise<void> } {
   const resolvedOptions = resolveMigrationRunnerOptions(options);
 
-  const run = async () => {
+  const run = async (): Promise<void> => {
     const runtime = createMigrationRuntime();
 
-    await runWithMigrationRuntime(runtime, async () => {
+    await runWithMigrationRuntime(runtime, async (): Promise<void> => {
       const {
         name,
         from,

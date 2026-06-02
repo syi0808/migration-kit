@@ -1,4 +1,8 @@
-import { parseJscodeshiftSourceForScan, type JscodeshiftCore } from "migration-kit";
+import {
+  parseJscodeshiftSourceForScan,
+  type JscodeshiftCore,
+  type JscodeshiftParseResult,
+} from "migration-kit";
 
 type NodePath = {
   node: any;
@@ -65,7 +69,7 @@ function ensureObjectProperty(j: JscodeshiftCore, node: any, name: string): any 
   return value;
 }
 
-function setObjectPropertyName(j: JscodeshiftCore, node: any, name: string) {
+function setObjectPropertyName(j: JscodeshiftCore, node: any, name: string): void {
   if (node.key?.type === "Identifier" && !node.computed) {
     node.key.name = name;
     return;
@@ -154,7 +158,7 @@ function isStringLiteral(node: any): boolean {
   );
 }
 
-function parseSource(filePath: string, source: string) {
+function parseSource(filePath: string, source: string): JscodeshiftParseResult {
   return parseJscodeshiftSourceForScan(filePath, source);
 }
 

@@ -5,7 +5,7 @@ import { createTextTransform } from "../utils/text-transform.js";
 const renameVitestEnvironmentVariables: ApiChange = {
   title: "Rename Vitest 4 environment variables",
   files: environmentVariablePatterns,
-  transform: createTextTransform((source) =>
+  transform: createTextTransform((source): string =>
     source
       .replaceAll("VITEST_MAX_THREADS", "VITEST_MAX_WORKERS")
       .replaceAll("VITEST_MAX_FORKS", "VITEST_MAX_WORKERS")

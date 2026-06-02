@@ -5,7 +5,10 @@ import type { PeerDependency } from "../types.js";
 import { logStyle } from "../utils/log-style.js";
 import semver from "semver";
 
-function dependenciesTask(logUpdate: ReturnType<typeof createLogUpdate>, checks: PeerDependency[]) {
+function dependenciesTask(
+  logUpdate: ReturnType<typeof createLogUpdate>,
+  checks: PeerDependency[],
+): void {
   const packageJson = readPackageJson(process.cwd());
   let hasFailure = false;
 

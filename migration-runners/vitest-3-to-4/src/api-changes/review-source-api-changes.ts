@@ -1,4 +1,4 @@
-import { readMigrationFileSync, type ApiChange } from "migration-kit";
+import { readMigrationFileSync, type ApiChange, type BlockCheckResult } from "migration-kit";
 import { sourceFilePatterns } from "../patterns.js";
 import { parseSource } from "../utils/jscodeshift.js";
 
@@ -17,7 +17,7 @@ const reviewSourceApiChanges: ApiChange = {
   shouldBlock: sourceReviewBlocker as NonNullable<ApiChange["shouldBlock"]>,
 };
 
-function sourceReviewBlocker(filePath: string) {
+function sourceReviewBlocker(filePath: string): BlockCheckResult {
   const findings = collectSourceReviewFindings(readMigrationFileSync(filePath), filePath);
 
   return toBlockResult(findings);
@@ -140,7 +140,7 @@ function collectNonConstructableGlobalMockNames(source: string): string[] {
   return constructableGlobalNames.filter((name) => names.has(name));
 }
 
-function collectInlineConstructorMocks(source: string, names: Set<string>) {
+function collectInlineConstructorMocks(source: string, names: Set<string>): void {
   const stubGlobalRegex = new RegExp(
     String.raw`\bvi\s*\.\s*stubGlobal\s*\(\s*['"](${constructableGlobalPattern})['"]\s*,\s*(?:${badConstructorMockPattern})`,
     "g",
@@ -154,7 +154,7 @@ function collectInlineConstructorMocks(source: string, names: Set<string>) {
   collectMatches(assignmentRegex, source, names);
 }
 
-function collectObjectDefinePropertyConstructorMocks(source: string, names: Set<string>) {
+function collectObjectDefinePropertyConstructorMocks(source: string, names: Set<string>): void {
   const definePropertyRegex = new RegExp(
     String.raw`\bObject\s*\.\s*defineProperty\s*\(\s*(?:global|globalThis|window)\s*,\s*['"](${constructableGlobalPattern})['"][\s\S]{0,400}?\bvalue\s*:\s*(?:${badConstructorMockPattern})`,
     "g",
@@ -163,7 +163,7 @@ function collectObjectDefinePropertyConstructorMocks(source: string, names: Set<
   collectMatches(definePropertyRegex, source, names);
 }
 
-function collectVariableAssignedConstructorMocks(source: string, names: Set<string>) {
+function collectVariableAssignedConstructorMocks(source: string, names: Set<string>): void {
   const badMockVariables = new Set<string>();
   const plainMockVariables = new Set<string>();
   const variableRegex = new RegExp(
@@ -231,7 +231,7 @@ function collectUnsafeViMockFactoryReferences(source: string, filePath = "source
   try {
     const { j, root } = parseSource(filePath, source);
 
-    root.find(j.Program).forEach((path: any) => {
+    root.find(j.Program).forEach((path: any): void => {
       program ??= path.node;
     });
   } catch {
@@ -246,7 +246,7 @@ function collectUnsafeViMockFactoryReferences(source: string, filePath = "source
   const viHoistedBindings = collectTopLevelViHoistedBindings(program);
   const unsafeReferences = new Set<string>();
 
-  walkAst(program, (node) => {
+  walkAst(program, (node): void => {
     if (!isViMockCall(node)) {
       return;
     }
@@ -320,10 +320,10 @@ function collectUnsafeFactoryReferences(
   topLevelBindings: ReadonlySet<string>,
   viHoistedBindings: ReadonlySet<string>,
   unsafeReferences: Set<string>,
-) {
+): void {
   const factoryBindings = collectFactoryBindings(factory);
 
-  walkAst(factory.body, (node, parent, key) => {
+  walkAst(factory.body, (node, parent, key): void => {
     if (
       node.type !== "Identifier" ||
       !isIdentifierReference(node, parent, key) ||
@@ -345,7 +345,7 @@ function collectFactoryBindings(factory: any): Set<string> {
     collectBindingNames(parameter, names);
   }
 
-  walkAst(factory.body, (node) => {
+  walkAst(factory.body, (node): void => {
     if (node.type === "VariableDeclarator") {
       collectBindingNames(node.id, names);
       return;
@@ -382,7 +382,7 @@ function collectFactoryBindings(factory: any): Set<string> {
   return names;
 }
 
-function collectBindingNames(node: any, names: Set<string>) {
+function collectBindingNames(node: any, names: Set<string>): void {
   if (!node) {
     return;
   }
@@ -497,12 +497,15 @@ function isIdentifierReference(node: any, parent: any, key?: string): boolean {
   return true;
 }
 
+/**
+ * Walks plain Babel/jscodeshift AST nodes while skipping metadata fields that cannot contain code.
+ */
 function walkAst(
   node: any,
   visit: (node: any, parent?: any, key?: string) => void,
   parent?: any,
   parentKey?: string,
-) {
+): void {
   if (!node || typeof node !== "object") {
     return;
   }
@@ -532,7 +535,7 @@ function walkAst(
   }
 }
 
-function collectMatches(regex: RegExp, source: string, names: Set<string>) {
+function collectMatches(regex: RegExp, source: string, names: Set<string>): void {
   for (const match of source.matchAll(regex)) {
     const name = match[1];
 
@@ -546,7 +549,7 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function addManualFixIf(findings: SourceReviewFinding[], condition: boolean, reason: string) {
+function addManualFixIf(findings: SourceReviewFinding[], condition: boolean, reason: string): void {
   if (condition) {
     findings.push({ kind: "manual-fix", reason });
   }
@@ -556,7 +559,7 @@ function addManualConfirmationIf(
   findings: SourceReviewFinding[],
   condition: boolean,
   reason: string,
-) {
+): void {
   if (condition) {
     findings.push({
       kind: "manual-confirmation",
@@ -566,12 +569,12 @@ function addManualConfirmationIf(
   }
 }
 
-function toBlockResult(findings: SourceReviewFinding[]) {
+function toBlockResult(findings: SourceReviewFinding[]): BlockCheckResult {
   if (findings.length === 0) {
     return false;
   }
 
-  return findings.length === 1 ? findings[0] : findings;
+  return findings.length === 1 ? findings[0]! : findings;
 }
 
 export {

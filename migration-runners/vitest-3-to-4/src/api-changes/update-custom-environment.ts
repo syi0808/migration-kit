@@ -1,5 +1,5 @@
 import { transformer } from "migration-kit";
-import type { ApiChange } from "migration-kit";
+import type { ApiChange, Transformer } from "migration-kit";
 import { sourceFilePatterns } from "../patterns.js";
 import {
   findObjectProperty,
@@ -19,13 +19,13 @@ const updateCustomEnvironment: ApiChange = {
   transform: createCustomEnvironmentTransform(),
 };
 
-function createCustomEnvironmentTransform() {
-  return transformer.jscodeshift((fileInfo, api) => {
+function createCustomEnvironmentTransform(): Transformer {
+  return transformer.jscodeshift((fileInfo, api): string => {
     const j = api.jscodeshift;
     const root = j(fileInfo.source);
     let changed = false;
 
-    root.find(j.ObjectProperty).forEach((path: NodePath) => {
+    root.find(j.ObjectProperty).forEach((path: NodePath): void => {
       if (getObjectPropertyName(path.node) !== "transformMode") {
         return;
       }

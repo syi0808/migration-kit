@@ -6,7 +6,7 @@ import { logStyle } from "../utils/log-style.js";
 async function environmentTask(
   logUpdate: ReturnType<typeof createLogUpdate>,
   checks: EnvironmentRequirementCheck[],
-) {
+): Promise<void> {
   for (const [index, check] of checks.entries()) {
     try {
       const result = await check();
@@ -26,7 +26,7 @@ async function environmentTask(
   }
 }
 
-function isAvailable(result: EnvironmentRequirementResult) {
+function isAvailable(result: EnvironmentRequirementResult): boolean {
   return typeof result === "boolean" ? result : result.available;
 }
 
@@ -35,7 +35,7 @@ function formatCheckMessage(
   result: EnvironmentRequirementResult,
   available: boolean,
   index: number,
-) {
+): string {
   if (typeof result !== "boolean" && result.message) {
     return result.message;
   }
@@ -55,7 +55,7 @@ function formatResultEvidence(
   message: string,
   result: EnvironmentRequirementResult,
   available: boolean,
-) {
+): string {
   if (available || typeof result === "boolean" || !result.evidence?.length) {
     return message;
   }

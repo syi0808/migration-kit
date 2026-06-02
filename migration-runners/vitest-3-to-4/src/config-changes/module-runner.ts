@@ -1,5 +1,5 @@
 import { readMigrationFileSync, transformer } from "migration-kit";
-import type { ConfigChange, JscodeshiftCore } from "migration-kit";
+import type { BlockCheckResult, ConfigChange, JscodeshiftCore, Transformer } from "migration-kit";
 import {
   ensureObjectProperty,
   findObjectProperty,
@@ -23,13 +23,13 @@ const moduleRunnerConfigChange: ConfigChange = {
   shouldBlock: moduleRunnerConfigReviewBlocker,
 };
 
-function createModuleRunnerConfigTransform() {
-  return transformer.jscodeshift((fileInfo, api) => {
+function createModuleRunnerConfigTransform(): Transformer {
+  return transformer.jscodeshift((fileInfo, api): string => {
     const j = api.jscodeshift;
     const root = j(fileInfo.source);
     let changed = false;
 
-    root.find(j.ObjectProperty).forEach((path: NodePath) => {
+    root.find(j.ObjectProperty).forEach((path: NodePath): void => {
       const propertyName = getObjectPropertyName(path.node);
 
       if (propertyName === "web" && isUnderPropertyChain(path, ["optimizer", "deps", "test"])) {
@@ -47,7 +47,7 @@ function createModuleRunnerConfigTransform() {
   });
 }
 
-function moveServerDeps(j: JscodeshiftCore, path: NodePath) {
+function moveServerDeps(j: JscodeshiftCore, path: NodePath): boolean {
   const depsObject = path.node.value;
   const testObject = path.parent?.node;
 
@@ -55,7 +55,7 @@ function moveServerDeps(j: JscodeshiftCore, path: NodePath) {
     return false;
   }
 
-  const serverOptions = depsObject.properties.filter((property: any) => {
+  const serverOptions = depsObject.properties.filter((property: any): boolean => {
     const propertyName = getObjectPropertyName(property);
 
     return propertyName ? movedServerDepOptions.has(propertyName) : false;
@@ -93,7 +93,7 @@ function moveServerDeps(j: JscodeshiftCore, path: NodePath) {
   return changed;
 }
 
-function moduleRunnerConfigReviewBlocker(filePath: string) {
+function moduleRunnerConfigReviewBlocker(filePath: string): BlockCheckResult {
   const source = readMigrationFileSync(filePath);
 
   if (!hasLegacyServerDepOptions(filePath, source)) {
@@ -107,7 +107,7 @@ function hasLegacyServerDepOptions(filePath: string, source: string): boolean {
   const { j, root } = parseSource(filePath, source);
   let found = false;
 
-  root.find(j.ObjectProperty).forEach((path: NodePath) => {
+  root.find(j.ObjectProperty).forEach((path: NodePath): void => {
     const propertyName = getObjectPropertyName(path.node);
 
     if (

@@ -5,7 +5,7 @@ import { createTextTransform } from "../utils/text-transform.js";
 const updateBrowserContextImports: ApiChange = {
   title: "Update @vitest/browser context imports",
   files: sourceFilePatterns,
-  transform: createTextTransform((source) =>
+  transform: createTextTransform((source): string =>
     replaceQuotedModuleSpecifier(source, "@vitest/browser/context", "vitest/browser"),
   ),
 };
@@ -13,7 +13,7 @@ const updateBrowserContextImports: ApiChange = {
 function replaceQuotedModuleSpecifier(source: string, from: string, to: string): string {
   const escapedFrom = escapeRegExp(from);
 
-  return source.replace(new RegExp(`(['"])${escapedFrom}\\1`, "g"), (_match, quote) => {
+  return source.replace(new RegExp(`(['"])${escapedFrom}\\1`, "g"), (_match, quote): string => {
     return `${quote}${to}${quote}`;
   });
 }

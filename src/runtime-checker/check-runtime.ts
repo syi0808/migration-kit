@@ -1,7 +1,11 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { EnvironmentRequirementCheck, RuntimeRequirementOptions } from "../types.js";
+import type {
+  EnvironmentRequirementCheck,
+  EnvironmentRequirementResult,
+  RuntimeRequirementOptions,
+} from "../types.js";
 import semver from "semver";
 
 const SEMVER_PATTERN = /v?(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?)/;
@@ -53,7 +57,7 @@ function createRuntimeCheck(
   }
 
   const label = version ? `${runtimeName} ${version}` : runtimeName;
-  const check: EnvironmentRequirementCheck = () => {
+  const check: EnvironmentRequirementCheck = (): EnvironmentRequirementResult => {
     const projectRequirement = readProjectRuntimeRequirement(runtimeName, cwd);
     const evidence: string[] = [];
 
@@ -99,7 +103,7 @@ function createRuntimeCheck(
   return check;
 }
 
-function createFailureResult(message: string, evidence: string[]) {
+function createFailureResult(message: string, evidence: string[]): EnvironmentRequirementResult {
   return {
     available: false,
     evidence,
@@ -107,7 +111,7 @@ function createFailureResult(message: string, evidence: string[]) {
   };
 }
 
-function formatRuntimeEvidence(source: string, value: string) {
+function formatRuntimeEvidence(source: string, value: string): string {
   return `${source}: ${value}`;
 }
 
@@ -286,7 +290,10 @@ function readVersionFile(filePath: string): string | null {
   return null;
 }
 
-function checkConfiguredRuntimeVersion(configuredVersion: string, requiredVersion: string) {
+function checkConfiguredRuntimeVersion(
+  configuredVersion: string,
+  requiredVersion: string,
+): boolean | null {
   const configuredRange = semver.validRange(configuredVersion, SEMVER_RANGE_OPTIONS);
 
   if (!configuredRange) {
@@ -329,7 +336,7 @@ function parseRuntimeVersion(output: string): string | null {
   return validVersion ?? null;
 }
 
-function formatUnparseableOutput(output: string) {
+function formatUnparseableOutput(output: string): string {
   const formattedOutput = output.trim().replaceAll(/\s+/g, " ");
 
   if (!formattedOutput) {

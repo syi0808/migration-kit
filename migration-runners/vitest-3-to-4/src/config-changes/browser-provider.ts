@@ -1,5 +1,5 @@
 import { readMigrationFileSync, transformer } from "migration-kit";
-import type { ConfigChange, JscodeshiftCore } from "migration-kit";
+import type { BlockCheckResult, ConfigChange, JscodeshiftCore, Transformer } from "migration-kit";
 import {
   findObjectProperty,
   getObjectPropertyName,
@@ -20,13 +20,13 @@ const browserProviderChange: ConfigChange = {
   shouldBlock: browserProviderReviewBlocker,
 };
 
-function createBrowserProviderTransform() {
-  return transformer.jscodeshift((fileInfo, api) => {
+function createBrowserProviderTransform(): Transformer {
+  return transformer.jscodeshift((fileInfo, api): string => {
     const j = api.jscodeshift;
     const root = j(fileInfo.source);
     let changed = false;
 
-    root.find(j.ObjectProperty).forEach((path: NodePath) => {
+    root.find(j.ObjectProperty).forEach((path: NodePath): void => {
       if (getObjectPropertyName(path.node) !== "browser" || !isUnderPropertyChain(path, ["test"])) {
         return;
       }
@@ -38,7 +38,7 @@ function createBrowserProviderTransform() {
   });
 }
 
-function moveBrowserNameToInstances(j: JscodeshiftCore, browserObject: any) {
+function moveBrowserNameToInstances(j: JscodeshiftCore, browserObject: any): boolean {
   if (!isObjectExpression(browserObject) || findObjectProperty(browserObject, "instances")) {
     return false;
   }
@@ -76,7 +76,7 @@ function moveBrowserNameToInstances(j: JscodeshiftCore, browserObject: any) {
   return true;
 }
 
-function browserProviderReviewBlocker(filePath: string) {
+function browserProviderReviewBlocker(filePath: string): BlockCheckResult {
   const source = readMigrationFileSync(filePath);
 
   if (hasBrowserProviderFindings(filePath, source)) {
@@ -92,7 +92,7 @@ function hasBrowserProviderFindings(filePath: string, source: string): boolean {
   const { j, root } = parseSource(filePath, source);
   let found = false;
 
-  root.find(j.ObjectProperty).forEach((path: NodePath) => {
+  root.find(j.ObjectProperty).forEach((path: NodePath): void => {
     if (getObjectPropertyName(path.node) !== "browser" || !isUnderPropertyChain(path, ["test"])) {
       return;
     }

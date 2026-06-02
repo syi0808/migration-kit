@@ -1,6 +1,6 @@
 import { createRequire } from "node:module";
 import { extname } from "node:path";
-import type { Transformer } from "../types.js";
+import type { Transformer, TransformResult } from "../types.js";
 import {
   getMigrationArtifact,
   readMigrationFile,
@@ -62,7 +62,7 @@ function jscodeshift(
   transform: JscodeshiftTransform,
   options: JscodeshiftOptions = {},
 ): Transformer {
-  return async (filePath) => {
+  return async (filePath): Promise<TransformResult> => {
     try {
       const source = await readMigrationFile(filePath);
       const api = createJscodeshiftApi(filePath, options);
@@ -104,10 +104,10 @@ function createJscodeshiftApi(filePath: string, options: JscodeshiftOptions): Js
   return {
     j: jscodeshift,
     jscodeshift,
-    stats: (name, quantity = 1) => {
+    stats: (name, quantity = 1): void => {
       options.stats?.(name, quantity, filePath);
     },
-    report: (message) => {
+    report: (message): void => {
       options.report?.(message, filePath);
     },
   };

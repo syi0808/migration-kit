@@ -1,5 +1,5 @@
 import { transformer } from "migration-kit";
-import type { ApiChange, JscodeshiftCore } from "migration-kit";
+import type { ApiChange, JscodeshiftCore, Transformer } from "migration-kit";
 import { sourceFilePatterns } from "../patterns.js";
 import { type NodePath } from "../utils/jscodeshift.js";
 
@@ -26,15 +26,15 @@ const updateDeprecatedTypeImports: ApiChange = {
   transform: createDeprecatedTypeImportsTransform(),
 };
 
-function createDeprecatedTypeImportsTransform() {
-  return transformer.jscodeshift((fileInfo, api) => {
+function createDeprecatedTypeImportsTransform(): Transformer {
+  return transformer.jscodeshift((fileInfo, api): string => {
     const j = api.jscodeshift;
     const root = j(fileInfo.source);
     let changed = false;
     const renamedReferences = new Map<string, string>();
     const importsToAdd: ImportToAdd[] = [];
 
-    root.find(j.ImportDeclaration).forEach((path: NodePath) => {
+    root.find(j.ImportDeclaration).forEach((path: NodePath): void => {
       const moduleName = path.node.source?.value;
 
       if (moduleName !== "vitest" && moduleName !== "vitest/node") {
@@ -90,7 +90,7 @@ function createDeprecatedTypeImportsTransform() {
     }
 
     if (renamedReferences.size > 0) {
-      root.find(j.Identifier).forEach((path: NodePath) => {
+      root.find(j.Identifier).forEach((path: NodePath): void => {
         const replacementName = renamedReferences.get(path.node.name);
 
         if (!replacementName || !isIdentifierReference(path)) {
@@ -175,7 +175,7 @@ function isIdentifierReference(path: NodePath): boolean {
   return true;
 }
 
-function removeImportSpecifier(importDeclaration: any, specifier: any) {
+function removeImportSpecifier(importDeclaration: any, specifier: any): void {
   const index = importDeclaration.specifiers?.indexOf(specifier) ?? -1;
 
   if (index !== -1) {
@@ -183,7 +183,7 @@ function removeImportSpecifier(importDeclaration: any, specifier: any) {
   }
 }
 
-function addTypeImports(j: JscodeshiftCore, root: any, importsToAdd: ImportToAdd[]) {
+function addTypeImports(j: JscodeshiftCore, root: any, importsToAdd: ImportToAdd[]): void {
   const program = getProgram(j, root);
 
   if (!program) {
@@ -215,7 +215,7 @@ function addTypeImports(j: JscodeshiftCore, root: any, importsToAdd: ImportToAdd
 function getProgram(j: JscodeshiftCore, root: any): any | null {
   let program: any | null = null;
 
-  root.find(j.Program).forEach((path: NodePath) => {
+  root.find(j.Program).forEach((path: NodePath): void => {
     program ??= path.node;
   });
 

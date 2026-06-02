@@ -15,7 +15,7 @@ async function configChangesTask(
   logUpdate: ReturnType<typeof createLogUpdate>,
   checks: ResolvedConfigChange[],
   configPath: string,
-) {
+): Promise<void> {
   let hasFailure = false;
 
   for (const check of checks) {
@@ -49,7 +49,7 @@ async function waitForConfigBlockCheck(
   logUpdate: ReturnType<typeof createLogUpdate>,
   check: ResolvedConfigChange,
   configPath: string,
-) {
+): Promise<boolean> {
   if (!check.shouldBlock) {
     return false;
   }
@@ -98,10 +98,7 @@ function collectBlockSummary(check: ResolvedConfigChange, configPath: string): B
   return snapshot;
 }
 
-type ManualConfirmationFinding = Extract<
-  NormalizedBlockFinding,
-  { kind: "manual-confirmation" }
->;
+type ManualConfirmationFinding = Extract<NormalizedBlockFinding, { kind: "manual-confirmation" }>;
 
 function isManualConfirmationFinding(
   finding: NormalizedBlockFinding,
@@ -113,7 +110,7 @@ function createManualConfirmationPrompt(
   title: string,
   configPath: string,
   confirmation: ManualConfirmationFinding,
-) {
+): string {
   const filePath = formatPlainPath(configPath);
 
   if (confirmation.prompt) {
@@ -145,7 +142,7 @@ function createManualConfirmation(
 function logTransformResult(
   logUpdate: ReturnType<typeof createLogUpdate>,
   result: TransformResult,
-) {
+): void {
   if (result.status === "updated") {
     logUpdate.persist(logStyle.success("Updated", 2));
     return;

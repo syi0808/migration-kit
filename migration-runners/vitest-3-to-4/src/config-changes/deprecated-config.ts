@@ -1,4 +1,4 @@
-import { readMigrationFileSync, type ConfigChange } from "migration-kit";
+import { readMigrationFileSync, type BlockCheckResult, type ConfigChange } from "migration-kit";
 
 type DeprecatedConfigFinding = {
   kind: "manual-fix" | "manual-confirmation";
@@ -14,7 +14,7 @@ const deprecatedConfigChange: ConfigChange = {
   shouldBlock: deprecatedConfigReviewBlocker as NonNullable<ConfigChange["shouldBlock"]>,
 };
 
-function deprecatedConfigReviewBlocker(filePath: string) {
+function deprecatedConfigReviewBlocker(filePath: string): BlockCheckResult {
   const source = readMigrationFileSync(filePath);
   const findings = collectDeprecatedConfigFindings(source);
 
@@ -43,7 +43,11 @@ function collectDeprecatedConfigFindings(source: string): DeprecatedConfigFindin
   return findings;
 }
 
-function addManualFixIf(findings: DeprecatedConfigFinding[], condition: boolean, reason: string) {
+function addManualFixIf(
+  findings: DeprecatedConfigFinding[],
+  condition: boolean,
+  reason: string,
+): void {
   if (condition) {
     findings.push({ kind: "manual-fix", reason });
   }
@@ -53,7 +57,7 @@ function addManualConfirmationIf(
   findings: DeprecatedConfigFinding[],
   condition: boolean,
   reason: string,
-) {
+): void {
   if (condition) {
     findings.push({
       kind: "manual-confirmation",
@@ -63,12 +67,12 @@ function addManualConfirmationIf(
   }
 }
 
-function toBlockResult(findings: DeprecatedConfigFinding[]) {
+function toBlockResult(findings: DeprecatedConfigFinding[]): BlockCheckResult {
   if (findings.length === 0) {
     return false;
   }
 
-  return findings.length === 1 ? findings[0] : findings;
+  return findings.length === 1 ? findings[0]! : findings;
 }
 
 export { collectDeprecatedConfigFindings, deprecatedConfigChange, deprecatedConfigReviewBlocker };

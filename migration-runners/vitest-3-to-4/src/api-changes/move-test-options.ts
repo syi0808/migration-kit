@@ -1,5 +1,5 @@
 import { transformer } from "migration-kit";
-import type { ApiChange } from "migration-kit";
+import type { ApiChange, Transformer } from "migration-kit";
 import { sourceFilePatterns } from "../patterns.js";
 import { isObjectExpression, isVitestTestCall, type NodePath } from "../utils/jscodeshift.js";
 
@@ -11,13 +11,13 @@ const moveTestOptions: ApiChange = {
   transform: createVitestTestOptionsTransform(),
 };
 
-function createVitestTestOptionsTransform() {
-  return transformer.jscodeshift((fileInfo, api) => {
+function createVitestTestOptionsTransform(): Transformer {
+  return transformer.jscodeshift((fileInfo, api): string => {
     const j = api.jscodeshift;
     const root = j(fileInfo.source);
     let changed = false;
 
-    root.find(j.CallExpression).forEach((path: NodePath) => {
+    root.find(j.CallExpression).forEach((path: NodePath): void => {
       const call = path.node;
 
       if (!isVitestTestCall(call.callee)) {

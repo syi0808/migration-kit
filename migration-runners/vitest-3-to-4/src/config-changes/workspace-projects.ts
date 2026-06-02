@@ -1,5 +1,5 @@
 import { readMigrationFileSync, transformer } from "migration-kit";
-import type { ConfigChange } from "migration-kit";
+import type { BlockCheckResult, ConfigChange, Transformer } from "migration-kit";
 import {
   getObjectPropertyName,
   isStringLiteral,
@@ -17,13 +17,13 @@ const workspaceProjectsChange: ConfigChange = {
   shouldBlock: workspaceProjectsReviewBlocker,
 };
 
-function createWorkspaceProjectsTransform() {
-  return transformer.jscodeshift((fileInfo, api) => {
+function createWorkspaceProjectsTransform(): Transformer {
+  return transformer.jscodeshift((fileInfo, api): string => {
     const j = api.jscodeshift;
     const root = j(fileInfo.source);
     let changed = false;
 
-    root.find(j.ObjectProperty).forEach((path: NodePath) => {
+    root.find(j.ObjectProperty).forEach((path: NodePath): void => {
       if (!isUnderObjectProperty(path, "test")) {
         return;
       }
@@ -40,7 +40,7 @@ function createWorkspaceProjectsTransform() {
   });
 }
 
-function workspaceProjectsReviewBlocker(filePath: string) {
+function workspaceProjectsReviewBlocker(filePath: string): BlockCheckResult {
   const source = readMigrationFileSync(filePath);
 
   if (/\bworkspace\s*:\s*['"][^'"]*vitest\.workspace\.[^'"]*['"]/.test(source)) {

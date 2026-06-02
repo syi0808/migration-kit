@@ -1,5 +1,5 @@
 import { readFile, writeFile } from "node:fs/promises";
-import type { ApiChange, Transformer } from "migration-kit";
+import type { ApiChange, Transformer, TransformResult } from "migration-kit";
 import {
   dependencyFields,
   readStringRecord,
@@ -19,7 +19,7 @@ const updateVitestDependencyRanges: ApiChange = {
 };
 
 function createPackageJsonDependencyTransform(): Transformer {
-  return async (filePath) => {
+  return async (filePath): Promise<TransformResult> => {
     try {
       const source = await readFile(filePath, "utf8");
       const packageJson = JSON.parse(source) as JsonObject;

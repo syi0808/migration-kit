@@ -13,7 +13,7 @@ const colors = createColors({
   }),
 });
 
-function formatCliError(error: unknown) {
+function formatCliError(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
 
   return `  ${colors.red("✗")} ${message}`;
@@ -23,7 +23,7 @@ function shouldUseColor(options: {
   argv: readonly string[];
   env: LogEnvironment;
   stream: LogOutputStream;
-}) {
+}): boolean {
   const forceColor = options.env.FORCE_COLOR;
 
   if (

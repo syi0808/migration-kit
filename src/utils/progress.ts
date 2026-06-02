@@ -19,12 +19,22 @@ type RenderOptions = {
   force?: boolean;
 };
 
-function createProgressTui(logUpdate: LogUpdate, options: ProgressTuiOptions) {
+type ProgressTui = {
+  clear(): void;
+  enabled: boolean;
+  render(completed: number, currentItem?: string, renderOptions?: RenderOptions): void;
+};
+
+function createProgressTui(logUpdate: LogUpdate, options: ProgressTuiOptions): ProgressTui {
   const enabled = options.total >= (options.minimumItems ?? defaultMinimumItems);
   const renderIntervalMs = options.renderIntervalMs ?? defaultRenderIntervalMs;
   let lastRenderTime = 0;
 
-  const render = (completed: number, currentItem?: string, renderOptions: RenderOptions = {}) => {
+  const render = (
+    completed: number,
+    currentItem?: string,
+    renderOptions: RenderOptions = {},
+  ): void => {
     if (!enabled) {
       return;
     }
@@ -50,7 +60,7 @@ function createProgressTui(logUpdate: LogUpdate, options: ProgressTuiOptions) {
     logUpdate(lines.join("\n"));
   };
 
-  const clear = () => {
+  const clear = (): void => {
     if (enabled) {
       logUpdate.clear();
     }
@@ -59,7 +69,7 @@ function createProgressTui(logUpdate: LogUpdate, options: ProgressTuiOptions) {
   return { clear, enabled, render };
 }
 
-function formatProgressLine(label: string, completed: number, total: number) {
+function formatProgressLine(label: string, completed: number, total: number): string {
   const safeTotal = Math.max(total, 1);
   const safeCompleted = Math.min(Math.max(completed, 0), total);
   const filled = Math.round((safeCompleted / safeTotal) * progressBarWidth);
@@ -70,3 +80,4 @@ function formatProgressLine(label: string, completed: number, total: number) {
 }
 
 export { createProgressTui };
+export type { ProgressTui, ProgressTuiOptions };

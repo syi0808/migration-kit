@@ -11,41 +11,52 @@ type LogStyleOptions = {
   stream?: LogOutputStream;
 };
 
+type LogStyle = {
+  section(message: string): string;
+  info(message: string, indent?: number): string;
+  success(message: string, indent?: number): string;
+  error(message: string, indent?: number): string;
+  warning(message: string, indent?: number): string;
+  skipped(message: string, indent?: number): string;
+  detail(message: string, indent?: number): string;
+  path(filePath: string): string;
+};
+
 const escapeCharacter = String.fromCharCode(27);
 const ansiPattern = new RegExp(`${escapeCharacter}\\[[0-?]*[ -/]*[@-~]`, "g");
 
-function createLogStyle(options: LogStyleOptions = {}) {
+function createLogStyle(options: LogStyleOptions = {}): LogStyle {
   const colors = createColors({ force: shouldUseColor(options) });
 
   return {
-    section(message: string) {
+    section(message: string): string {
       return colors.cyan(colors.bold(`◆ ${message}`));
     },
-    info(message: string, indent = 1) {
+    info(message: string, indent = 1): string {
       return statusLine(indent, colors.cyan("→"), message);
     },
-    success(message: string, indent = 1) {
+    success(message: string, indent = 1): string {
       return statusLine(indent, colors.green("✓"), message);
     },
-    error(message: string, indent = 1) {
+    error(message: string, indent = 1): string {
       return statusLine(indent, colors.red("✗"), message);
     },
-    warning(message: string, indent = 1) {
+    warning(message: string, indent = 1): string {
       return statusLine(indent, colors.yellow("!"), message);
     },
-    skipped(message: string, indent = 1) {
+    skipped(message: string, indent = 1): string {
       return statusLine(indent, colors.dim("-"), colors.dim(message));
     },
-    detail(message: string, indent = 2) {
+    detail(message: string, indent = 2): string {
       return `${indentation(indent)}${colors.dim(message)}`;
     },
-    path(filePath: string) {
+    path(filePath: string): string {
       return colors.cyan(filePath);
     },
   };
 }
 
-function shouldUseColor(options: LogStyleOptions = {}) {
+function shouldUseColor(options: LogStyleOptions = {}): boolean {
   const env = options.env ?? process.env;
   const argv = options.argv ?? process.argv;
   const stream = options.stream ?? process.stdout;
@@ -69,22 +80,23 @@ function shouldUseColor(options: LogStyleOptions = {}) {
   return Boolean(stream.isTTY);
 }
 
-function stripAnsi(input: string) {
+function stripAnsi(input: string): string {
   return input.replace(ansiPattern, "");
 }
 
-function statusLine(indent: number, symbol: string, message: string) {
+function statusLine(indent: number, symbol: string, message: string): string {
   return `${indentation(indent)}${symbol} ${message}`;
 }
 
-function indentation(level: number) {
+function indentation(level: number): string {
   return "  ".repeat(level);
 }
 
-function hasOwn(object: LogEnvironment, key: string) {
+function hasOwn(object: LogEnvironment, key: string): boolean {
   return Object.hasOwn(object, key);
 }
 
 const logStyle = createLogStyle();
 
 export { createLogStyle, logStyle, shouldUseColor, stripAnsi };
+export type { LogStyle };

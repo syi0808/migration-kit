@@ -1,5 +1,5 @@
 import { readMigrationFileSync, transformer } from "migration-kit";
-import type { ConfigChange } from "migration-kit";
+import type { BlockCheckResult, ConfigChange, Transformer } from "migration-kit";
 import {
   getObjectPropertyName,
   isUnderObjectProperty,
@@ -15,13 +15,13 @@ const coverageOptionsChange: ConfigChange = {
   shouldBlock: coverageOptionsReviewBlocker,
 };
 
-function createCoverageOptionsTransform() {
-  return transformer.jscodeshift((fileInfo, api) => {
+function createCoverageOptionsTransform(): Transformer {
+  return transformer.jscodeshift((fileInfo, api): string => {
     const j = api.jscodeshift;
     const root = j(fileInfo.source);
     let changed = false;
 
-    root.find(j.ObjectProperty).forEach((path: NodePath) => {
+    root.find(j.ObjectProperty).forEach((path: NodePath): void => {
       const propertyName = getObjectPropertyName(path.node);
 
       if (!propertyName || !isRemovedCoverageOption(path, propertyName)) {
@@ -36,7 +36,7 @@ function createCoverageOptionsTransform() {
   });
 }
 
-function coverageOptionsReviewBlocker(filePath: string) {
+function coverageOptionsReviewBlocker(filePath: string): BlockCheckResult {
   const source = readMigrationFileSync(filePath);
 
   if (/\bcoverage\s*:\s*{/.test(source) && !/\binclude\s*:/.test(source)) {

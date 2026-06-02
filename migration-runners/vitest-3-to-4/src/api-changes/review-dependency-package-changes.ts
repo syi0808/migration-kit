@@ -1,4 +1,4 @@
-import { readMigrationFileSync, type ApiChange } from "migration-kit";
+import { readMigrationFileSync, type ApiChange, type BlockCheckResult } from "migration-kit";
 import {
   dependencyFields,
   getPackageRangeReviewFinding,
@@ -21,7 +21,7 @@ const reviewDependencyPackageChanges: ApiChange = {
   shouldBlock: packageJsonReviewBlocker as NonNullable<ApiChange["shouldBlock"]>,
 };
 
-function packageJsonReviewBlocker(filePath: string) {
+function packageJsonReviewBlocker(filePath: string): BlockCheckResult {
   const source = readMigrationFileSync(filePath);
 
   try {
@@ -70,13 +70,17 @@ function collectPackageJsonReviewFindings(packageJson: JsonObject): PackageJsonR
 function addFindingIfPresent(
   findings: PackageJsonReviewFinding[],
   finding: PackageJsonReviewFinding | null,
-) {
+): void {
   if (finding) {
     findings.push(finding);
   }
 }
 
-function addManualFixIf(findings: PackageJsonReviewFinding[], condition: boolean, reason: string) {
+function addManualFixIf(
+  findings: PackageJsonReviewFinding[],
+  condition: boolean,
+  reason: string,
+): void {
   if (condition) {
     findings.push({ kind: "manual-fix", reason });
   }
@@ -86,18 +90,18 @@ function addManualConfirmationIf(
   findings: PackageJsonReviewFinding[],
   condition: boolean,
   reason: string,
-) {
+): void {
   if (condition) {
     findings.push({ kind: "manual-confirmation", reason });
   }
 }
 
-function toBlockResult(findings: PackageJsonReviewFinding[]) {
+function toBlockResult(findings: PackageJsonReviewFinding[]): BlockCheckResult {
   if (findings.length === 0) {
     return false;
   }
 
-  return findings.length === 1 ? findings[0] : findings;
+  return findings.length === 1 ? findings[0]! : findings;
 }
 
 export {

@@ -64,7 +64,7 @@ class MigrationRuntime {
     this.#setSource(filePath, source, fileStat);
   }
 
-  writeSourceSync(filePath: string, source: string) {
+  writeSourceSync(filePath: string, source: string): void {
     writeFileSync(filePath, source);
     const fileStat = statSync(filePath);
 
@@ -98,7 +98,7 @@ class MigrationRuntime {
     return value;
   }
 
-  invalidate(filePath: string) {
+  invalidate(filePath: string): void {
     this.#sources.delete(filePath);
     this.#artifacts.delete(filePath);
   }
@@ -122,7 +122,7 @@ class MigrationRuntime {
     return null;
   }
 
-  #setSource(filePath: string, source: string, fileStat: Stats) {
+  #setSource(filePath: string, source: string, fileStat: Stats): void {
     this.#sources.delete(filePath);
     this.#sources.set(filePath, {
       source,
@@ -133,7 +133,7 @@ class MigrationRuntime {
     this.#trimSourceCache();
   }
 
-  #trimSourceCache() {
+  #trimSourceCache(): void {
     while (this.#sources.size > this.#maxSourceEntries) {
       const oldest = this.#sources.keys().next().value;
 
@@ -146,7 +146,7 @@ class MigrationRuntime {
     }
   }
 
-  #trimArtifactCache() {
+  #trimArtifactCache(): void {
     while (this.#artifacts.size > this.#maxArtifactEntries) {
       const oldest = this.#artifacts.keys().next().value;
 
@@ -161,7 +161,7 @@ class MigrationRuntime {
 
 const runtimeStorage = new AsyncLocalStorage<MigrationRuntime>();
 
-function createMigrationRuntime(options?: MigrationRuntimeOptions) {
+function createMigrationRuntime(options?: MigrationRuntimeOptions): MigrationRuntime {
   return new MigrationRuntime(options);
 }
 
@@ -169,7 +169,7 @@ function runWithMigrationRuntime<T>(runtime: MigrationRuntime, fn: () => T): T {
   return runtimeStorage.run(runtime, fn);
 }
 
-function getMigrationRuntime() {
+function getMigrationRuntime(): MigrationRuntime | undefined {
   return runtimeStorage.getStore();
 }
 
@@ -192,7 +192,7 @@ async function writeMigrationFile(filePath: string, source: string): Promise<voi
   await writeFile(filePath, source);
 }
 
-function writeMigrationFileSync(filePath: string, source: string) {
+function writeMigrationFileSync(filePath: string, source: string): void {
   const runtime = getMigrationRuntime();
 
   if (runtime) {

@@ -1,5 +1,5 @@
 import { readMigrationFileSync, transformer } from "migration-kit";
-import type { ConfigChange, JscodeshiftCore } from "migration-kit";
+import type { BlockCheckResult, ConfigChange, JscodeshiftCore, Transformer } from "migration-kit";
 import {
   findObjectProperty,
   getObjectPropertyName,
@@ -26,13 +26,13 @@ const poolReworkChange: ConfigChange = {
   shouldBlock: poolReworkReviewBlocker,
 };
 
-function createPoolReworkTransform() {
-  return transformer.jscodeshift((fileInfo, api) => {
+function createPoolReworkTransform(): Transformer {
+  return transformer.jscodeshift((fileInfo, api): string => {
     const j = api.jscodeshift;
     const root = j(fileInfo.source);
     let changed = false;
 
-    root.find(j.ObjectProperty).forEach((path: NodePath) => {
+    root.find(j.ObjectProperty).forEach((path: NodePath): void => {
       if (!isUnderPropertyChain(path, ["test"])) {
         return;
       }
@@ -64,7 +64,7 @@ function createPoolReworkTransform() {
   });
 }
 
-function flattenPoolOptions(j: JscodeshiftCore, path: NodePath) {
+function flattenPoolOptions(j: JscodeshiftCore, path: NodePath): boolean {
   const poolOptions = path.node.value;
   const testObject = path.parent?.node;
 
@@ -140,7 +140,11 @@ function getFlattenedPoolOptionName(poolName: string, optionName: string): strin
   return optionName;
 }
 
-function renameToAvailableProperty(j: JscodeshiftCore, path: NodePath, targetName: string) {
+function renameToAvailableProperty(
+  j: JscodeshiftCore,
+  path: NodePath,
+  targetName: string,
+): boolean {
   const object = path.parent?.node;
   const existing = findObjectProperty(object, targetName);
 
@@ -158,7 +162,7 @@ function replaceNestedSingleWorkerOption(
   testObject: any,
   poolObject: any,
   option: any,
-) {
+): boolean {
   if (!isBooleanLiteral(option.value)) {
     return false;
   }
@@ -177,7 +181,7 @@ function replaceNestedSingleWorkerOption(
   return true;
 }
 
-function replaceSingleWorkerOption(j: JscodeshiftCore, path: NodePath) {
+function replaceSingleWorkerOption(j: JscodeshiftCore, path: NodePath): boolean {
   const testObject = path.parent?.node;
 
   if (!isObjectExpression(testObject) || !isBooleanLiteral(path.node.value)) {
@@ -198,7 +202,7 @@ function replaceSingleWorkerOption(j: JscodeshiftCore, path: NodePath) {
   return true;
 }
 
-function ensureSingleWorkerSettings(j: JscodeshiftCore, testObject: any) {
+function ensureSingleWorkerSettings(j: JscodeshiftCore, testObject: any): boolean {
   const maxWorkers = findObjectProperty(testObject, "maxWorkers");
   const isolate = findObjectProperty(testObject, "isolate");
 
@@ -221,15 +225,15 @@ function ensureSingleWorkerSettings(j: JscodeshiftCore, testObject: any) {
   return true;
 }
 
-function isNumberValue(node: any, value: number) {
+function isNumberValue(node: any, value: number): boolean {
   return isNumericLiteral(node) && node.value === value;
 }
 
-function isBooleanValue(node: any, value: boolean) {
+function isBooleanValue(node: any, value: boolean): boolean {
   return isBooleanLiteral(node) && node.value === value;
 }
 
-function poolReworkReviewBlocker(filePath: string) {
+function poolReworkReviewBlocker(filePath: string): BlockCheckResult {
   const source = readMigrationFileSync(filePath);
   const reasons: string[] = [];
 
@@ -266,7 +270,7 @@ function poolReworkReviewBlocker(filePath: string) {
   return { reason: reasons.join(" ") };
 }
 
-function addIf(reasons: string[], condition: boolean, reason: string) {
+function addIf(reasons: string[], condition: boolean, reason: string): void {
   if (condition) {
     reasons.push(reason);
   }
@@ -276,7 +280,7 @@ function hasImmediateTestProperty(filePath: string, source: string, name: string
   const { j, root } = parseSource(filePath, source);
   let found = false;
 
-  root.find(j.ObjectProperty).forEach((path: NodePath) => {
+  root.find(j.ObjectProperty).forEach((path: NodePath): void => {
     if (getObjectPropertyName(path.node) === name && isUnderPropertyChain(path, ["test"])) {
       found = true;
     }
@@ -289,7 +293,7 @@ function hasNestedRemovedPoolOption(filePath: string, source: string): boolean {
   const { j, root } = parseSource(filePath, source);
   let found = false;
 
-  root.find(j.ObjectProperty).forEach((path: NodePath) => {
+  root.find(j.ObjectProperty).forEach((path: NodePath): void => {
     const propertyName = getObjectPropertyName(path.node);
 
     if (propertyName && removedPoolOptions.has(propertyName) && isUnderPoolOptionGroup(path)) {

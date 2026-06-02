@@ -46,7 +46,7 @@ function addPackageRangeReason(
   dependencies: Record<string, unknown>,
   packageName: string,
   requiredRange: string,
-) {
+): void {
   const finding = getPackageRangeReviewFinding(dependencies, packageName, requiredRange);
 
   if (finding) {

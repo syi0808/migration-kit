@@ -1,5 +1,5 @@
 import { transformer } from "migration-kit";
-import type { ConfigChange, JscodeshiftCore } from "migration-kit";
+import type { ConfigChange, JscodeshiftCore, Transformer } from "migration-kit";
 import {
   getObjectPropertyName,
   isArrayExpression,
@@ -15,13 +15,13 @@ const reporterUpdatesChange: ConfigChange = {
   transform: createReporterUpdatesTransform(),
 };
 
-function createReporterUpdatesTransform() {
-  return transformer.jscodeshift((fileInfo, api) => {
+function createReporterUpdatesTransform(): Transformer {
+  return transformer.jscodeshift((fileInfo, api): string => {
     const j = api.jscodeshift;
     const root = j(fileInfo.source);
     let changed = false;
 
-    root.find(j.ObjectProperty).forEach((path: NodePath) => {
+    root.find(j.ObjectProperty).forEach((path: NodePath): void => {
       if (
         !isUnderObjectProperty(path, "test") ||
         getObjectPropertyName(path.node) !== "reporters"
@@ -52,7 +52,7 @@ function replaceBasicReporter(j: JscodeshiftCore, value: any): any | null {
 
   let changed = false;
 
-  value.elements = value.elements.map((element: any) => {
+  value.elements = value.elements.map((element: any): any => {
     if (isStringLiteral(element) && element.value === "basic") {
       changed = true;
       return createDefaultReporter(j);
@@ -81,7 +81,7 @@ function createDefaultReporter(j: JscodeshiftCore): any {
   ]);
 }
 
-function ensureReporterSummaryFalse(j: JscodeshiftCore, reporter: any) {
+function ensureReporterSummaryFalse(j: JscodeshiftCore, reporter: any): void {
   const options = reporter.elements[1];
 
   if (!isObjectExpression(options)) {
@@ -92,7 +92,7 @@ function ensureReporterSummaryFalse(j: JscodeshiftCore, reporter: any) {
   }
 
   const hasSummary = options.properties.some(
-    (property: any) => getObjectPropertyName(property) === "summary",
+    (property: any): boolean => getObjectPropertyName(property) === "summary",
   );
 
   if (!hasSummary) {

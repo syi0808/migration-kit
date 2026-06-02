@@ -32,7 +32,7 @@ function eraseConfirmationPrompt(
   output: ConfirmationOutput,
   message: string,
   selectedLabel: string,
-) {
+): void {
   if (!output.isTTY) {
     return;
   }
@@ -46,7 +46,11 @@ function eraseConfirmationPrompt(
   output.write(`\x1B[${lineCount}A\x1B[0J`);
 }
 
-function countPromptLines(output: ConfirmationOutput, message: string, selectedLabel: string) {
+function countPromptLines(
+  output: ConfirmationOutput,
+  message: string,
+  selectedLabel: string,
+): number {
   const columns = Math.max(20, output.columns ?? 80);
   const promptPrefixWidth = 3;
   const messageLines = message

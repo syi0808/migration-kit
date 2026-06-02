@@ -71,11 +71,32 @@ type PackageVersionUpdateResult =
       reason: string;
     };
 
+type PackageJsonSource = {
+  packageJson: PackageJson;
+  source: string;
+};
+
+type DependencyMatch = {
+  field: DependencyField;
+  dependencies: Record<string, unknown>;
+};
+
+type InstallOutputPreviewState = {
+  lines: string[];
+  currentLine: string;
+};
+
+type InstallOutputPreview = {
+  append(chunk: string): void;
+  clear(): void;
+  render(): void;
+};
+
 async function packageVersionTask(
   logUpdate: ReturnType<typeof createLogUpdate>,
   updates: ResolvedPackageVersionUpdate[],
   options: PackageVersionTaskOptions = {},
-) {
+): Promise<void> {
   const cwd = options.cwd ?? process.cwd();
   const packageJsonPath = join(cwd, "package.json");
   const packageJsonSource = readPackageJsonSource(packageJsonPath);
@@ -360,45 +381,46 @@ async function readPackageMetadata(dependency: string): Promise<Record<string, u
   const registryUrl = new URL(registry.endsWith("/") ? registry : `${registry}/`);
   const metadataUrl = new URL(encodeURIComponent(dependency), registryUrl);
 
-  return await new Promise<Record<string, unknown>>((resolvePromise, reject) => {
-    const request = (metadataUrl.protocol === "http:" ? httpGet : get)(metadataUrl, (response) => {
-      if (response.statusCode === 404) {
-        response.resume();
-        resolvePromise({});
-        return;
-      }
-
-      if (!response.statusCode || response.statusCode < 200 || response.statusCode >= 300) {
-        response.resume();
-        reject(new Error(`Failed to fetch ${dependency} metadata: HTTP ${response.statusCode}`));
-        return;
-      }
-
-      let source = "";
-
-      response.setEncoding("utf8");
-      response.on("data", (chunk) => {
-        source += chunk;
-      });
-      response.on("end", () => {
-        try {
-          resolvePromise(JSON.parse(source) as Record<string, unknown>);
-        } catch (error) {
-          reject(error);
+  return await new Promise<Record<string, unknown>>((resolvePromise, reject): void => {
+    const request = (metadataUrl.protocol === "http:" ? httpGet : get)(
+      metadataUrl,
+      (response): void => {
+        if (response.statusCode === 404) {
+          response.resume();
+          resolvePromise({});
+          return;
         }
-      });
-    });
+
+        if (!response.statusCode || response.statusCode < 200 || response.statusCode >= 300) {
+          response.resume();
+          reject(new Error(`Failed to fetch ${dependency} metadata: HTTP ${response.statusCode}`));
+          return;
+        }
+
+        let source = "";
+
+        response.setEncoding("utf8");
+        response.on("data", (chunk): void => {
+          source += chunk;
+        });
+        response.on("end", (): void => {
+          try {
+            resolvePromise(JSON.parse(source) as Record<string, unknown>);
+          } catch (error) {
+            reject(error);
+          }
+        });
+      },
+    );
 
     request.on("error", reject);
-    request.setTimeout(30_000, () => {
+    request.setTimeout(30_000, (): void => {
       request.destroy(new Error(`Timed out fetching ${dependency} metadata`));
     });
   });
 }
 
-function readPackageJsonSource(
-  packageJsonPath: string,
-): { packageJson: PackageJson; source: string } | null {
+function readPackageJsonSource(packageJsonPath: string): PackageJsonSource | null {
   try {
     const source = readFileSync(packageJsonPath, "utf8");
     const packageJson = JSON.parse(source) as PackageJson;
@@ -419,10 +441,7 @@ function readPackageManager(value: unknown): PackageManager | null {
   return match ? (match[1] as PackageManager) : null;
 }
 
-function findDependency(
-  packageJson: PackageJson,
-  dependency: string,
-): { field: DependencyField; dependencies: Record<string, unknown> } | null {
+function findDependency(packageJson: PackageJson, dependency: string): DependencyMatch | null {
   for (const field of dependencyFields) {
     const dependencies = readRecord(packageJson[field]);
 
@@ -484,13 +503,13 @@ function detectJsonIndent(source: string): string | number {
 function createInstallOutputPreview(
   logUpdate: ReturnType<typeof createLogUpdate>,
   packageManager: PackageManager,
-) {
-  const state = {
-    lines: [] as string[],
+): InstallOutputPreview {
+  const state: InstallOutputPreviewState = {
+    lines: [],
     currentLine: "",
   };
 
-  const render = () => {
+  const render = (): void => {
     const outputLines = readInstallOutputPreviewLines(state);
     const message = [
       logStyle.info(`Installing dependencies with ${packageManager}...`),
@@ -501,18 +520,21 @@ function createInstallOutputPreview(
   };
 
   return {
-    append(chunk: string) {
+    append(chunk: string): void {
       appendInstallOutputChunk(state, chunk);
       render();
     },
-    clear() {
+    clear(): void {
       logUpdate.clear();
     },
     render,
   };
 }
 
-function appendInstallOutputChunk(state: { lines: string[]; currentLine: string }, chunk: string) {
+/**
+ * Maintains a rolling preview of package-manager output without persisting noisy install logs.
+ */
+function appendInstallOutputChunk(state: InstallOutputPreviewState, chunk: string): void {
   for (const character of chunk) {
     if (character === "\n" || character === "\r") {
       pushInstallOutputLine(state, state.currentLine);
@@ -524,7 +546,7 @@ function appendInstallOutputChunk(state: { lines: string[]; currentLine: string 
   }
 }
 
-function pushInstallOutputLine(state: { lines: string[]; currentLine: string }, line: string) {
+function pushInstallOutputLine(state: InstallOutputPreviewState, line: string): void {
   const normalizedLine = normalizeInstallOutputLine(line);
 
   if (!normalizedLine) {
@@ -538,14 +560,14 @@ function pushInstallOutputLine(state: { lines: string[]; currentLine: string }, 
   }
 }
 
-function readInstallOutputPreviewLines(state: { lines: string[]; currentLine: string }) {
+function readInstallOutputPreviewLines(state: InstallOutputPreviewState): string[] {
   const currentLine = normalizeInstallOutputLine(state.currentLine);
   const lines = currentLine ? [...state.lines, currentLine] : state.lines;
 
   return lines.slice(-4);
 }
 
-function normalizeInstallOutputLine(line: string) {
+function normalizeInstallOutputLine(line: string): string | null {
   const normalizedLine = stripAnsi(line).trimEnd();
 
   return normalizedLine.trim() ? normalizedLine : null;
@@ -555,8 +577,8 @@ async function runPackageManagerInstall(
   packageManager: PackageManager,
   cwd: string,
   onOutput?: InstallOutputHandler,
-) {
-  await new Promise<void>((resolvePromise, reject) => {
+): Promise<void> {
+  await new Promise<void>((resolvePromise, reject): void => {
     const child = spawn(packageManager, ["install"], {
       cwd,
       stdio: ["ignore", "pipe", "pipe"],
@@ -569,11 +591,11 @@ async function runPackageManagerInstall(
       child.stderr?.on("data", onOutput);
     }
 
-    child.on("error", (error) => {
+    child.on("error", (error): void => {
       reject(new Error(`Failed to run ${packageManager} install: ${error.message}`));
     });
 
-    child.on("close", (exitCode) => {
+    child.on("close", (exitCode): void => {
       if (exitCode === 0) {
         resolvePromise();
         return;

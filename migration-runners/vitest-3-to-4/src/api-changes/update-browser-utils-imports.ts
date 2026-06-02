@@ -1,5 +1,5 @@
 import { transformer } from "migration-kit";
-import type { ApiChange, JscodeshiftCore } from "migration-kit";
+import type { ApiChange, JscodeshiftCore, Transformer } from "migration-kit";
 import { sourceFilePatterns } from "../patterns.js";
 import { type NodePath } from "../utils/jscodeshift.js";
 
@@ -19,8 +19,8 @@ const updateBrowserUtilsImports: ApiChange = {
   transform: createBrowserUtilsImportsTransform(),
 };
 
-function createBrowserUtilsImportsTransform() {
-  return transformer.jscodeshift((fileInfo, api) => {
+function createBrowserUtilsImportsTransform(): Transformer {
+  return transformer.jscodeshift((fileInfo, api): string => {
     const j = api.jscodeshift;
     const root = j(fileInfo.source);
     const program = getProgram(j, root);
@@ -90,7 +90,7 @@ function createBrowserUtilsImportsTransform() {
 function getProgram(j: JscodeshiftCore, root: any): any | null {
   let program: any | null = null;
 
-  root.find(j.Program).forEach((path: NodePath) => {
+  root.find(j.Program).forEach((path: NodePath): void => {
     program ??= path.node;
   });
 
@@ -110,7 +110,7 @@ function isSupportedUtilsImport(statement: any): boolean {
 
   return (
     specifiers.length > 0 &&
-    specifiers.every((specifier: any) => {
+    specifiers.every((specifier: any): boolean => {
       if (specifier.importKind === "type") {
         return false;
       }
@@ -168,7 +168,7 @@ function collectTopLevelBindingNames(program: any): Set<string> {
   return names;
 }
 
-function collectBindingNames(node: any, names: Set<string>) {
+function collectBindingNames(node: any, names: Set<string>): void {
   if (!node) {
     return;
   }
@@ -208,7 +208,7 @@ function collectBindingNames(node: any, names: Set<string>) {
   }
 }
 
-function removeStatement(program: any, statement: any) {
+function removeStatement(program: any, statement: any): void {
   const index = program.body.indexOf(statement);
 
   if (index !== -1) {
@@ -280,8 +280,8 @@ function createUtilsDestructure(
   j: JscodeshiftCore,
   namedImports: BrowserUtilsNamedImport[],
   utilsLocalName: string,
-) {
-  const properties = namedImports.map(({ importedName, localName }) => {
+): any {
+  const properties = namedImports.map(({ importedName, localName }): any => {
     const property = j.objectProperty(j.identifier(importedName), j.identifier(localName));
 
     property.shorthand = importedName === localName;

@@ -22,7 +22,7 @@ import { runTransform } from "./transform.js";
 async function apiChangesTask(
   logUpdate: ReturnType<typeof createLogUpdate>,
   checks: ResolvedApiChange[],
-) {
+): Promise<void> {
   let hasFailure = false;
 
   for (const check of checks) {
@@ -86,7 +86,7 @@ type Summary = {
   failed: Array<{ filePath: string; reason: string }>;
 };
 
-async function findFiles(patterns: string[]) {
+async function findFiles(patterns: string[]): Promise<string[]> {
   const filePaths = await glob(patterns, {
     absolute: true,
     cwd: process.cwd(),
@@ -110,7 +110,7 @@ function createSummary(): Summary {
 async function waitForApiBlockCheck(
   logUpdate: ReturnType<typeof createLogUpdate>,
   check: ResolvedApiChange,
-) {
+): Promise<boolean> {
   if (!check.shouldBlock) {
     return false;
   }
@@ -177,7 +177,7 @@ async function collectBlockSummary(
   return snapshot;
 }
 
-function recordTransformResult(summary: Summary, result: TransformResult) {
+function recordTransformResult(summary: Summary, result: TransformResult): void {
   if (result.status === "updated") {
     summary.updated += 1;
     return;
@@ -196,7 +196,10 @@ function recordTransformResult(summary: Summary, result: TransformResult) {
   summary.failed.push({ filePath: result.filePath, reason: result.reason });
 }
 
-function logTransformSummary(logUpdate: ReturnType<typeof createLogUpdate>, summary: Summary) {
+function logTransformSummary(
+  logUpdate: ReturnType<typeof createLogUpdate>,
+  summary: Summary,
+): void {
   if (summary.updated > 0) {
     logUpdate.persist(logStyle.success(`${summary.updated} auto-fixed`, 2));
   }
@@ -250,7 +253,7 @@ function createManualConfirmationPrompt(
   title: string,
   filePath: string,
   confirmation: Extract<NormalizedBlockFinding, { kind: "manual-confirmation" }>,
-) {
+): string {
   const formattedFilePath = formatPlainPath(filePath);
 
   if (confirmation.prompt) {

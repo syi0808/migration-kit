@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { formatError } from "./error.js";
 
 type ClipboardCommand = {
   command: string;
@@ -42,16 +43,16 @@ function getClipboardCommands(): ClipboardCommand[] {
 }
 
 function writeClipboardCommand({ command, args }: ClipboardCommand, text: string): Promise<void> {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve, reject): void => {
     const child = spawn(command, args, { stdio: ["pipe", "ignore", "pipe"] });
     const stderr: Buffer[] = [];
 
-    child.stderr?.on("data", (chunk: Buffer) => {
+    child.stderr?.on("data", (chunk: Buffer): void => {
       stderr.push(chunk);
     });
     child.on("error", reject);
     child.stdin.on("error", reject);
-    child.on("close", (code) => {
+    child.on("close", (code): void => {
       if (code === 0) {
         resolve();
         return;
@@ -63,10 +64,6 @@ function writeClipboardCommand({ command, args }: ClipboardCommand, text: string
     });
     child.stdin.end(text);
   });
-}
-
-function formatError(error: unknown) {
-  return error instanceof Error ? error.message : String(error);
 }
 
 export { copyToClipboard };

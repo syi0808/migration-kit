@@ -7,16 +7,19 @@ const preserveCoverageIgnoreComments: ApiChange = {
   description:
     "Adds @preserve to istanbul/v8 ignore block comments so esbuild keeps them for coverage.",
   files: sourceFilePatterns,
-  transform: createTextTransform((source) =>
-    source.replace(/\/\*\s*((?:istanbul|v8) ignore\b[^*]*?)\s*\*\//g, (match, directive) => {
-      const text = String(directive).trim();
+  transform: createTextTransform((source): string =>
+    source.replace(
+      /\/\*\s*((?:istanbul|v8) ignore\b[^*]*?)\s*\*\//g,
+      (match, directive): string => {
+        const text = String(directive).trim();
 
-      if (text.includes("@preserve")) {
-        return match;
-      }
+        if (text.includes("@preserve")) {
+          return match;
+        }
 
-      return `/* ${text} -- @preserve */`;
-    }),
+        return `/* ${text} -- @preserve */`;
+      },
+    ),
   ),
 };
 

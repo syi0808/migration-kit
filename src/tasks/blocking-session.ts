@@ -34,13 +34,17 @@ type BlockingSessionOptions = {
   input?: KeyInputStream;
 };
 
+/**
+ * Re-runs a blocker snapshot until blocking findings are resolved, acknowledged, or failed.
+ * Returns true when execution should fail, and false when the migration can continue.
+ */
 async function runBlockingSession({
   logUpdate,
   policy,
   collectSnapshot,
   copy = copyToClipboard,
   input,
-}: BlockingSessionOptions) {
+}: BlockingSessionOptions): Promise<boolean> {
   const confirmed = new Set<string>();
   let hasLoggedManualFixSummary = false;
   let hadManualFixes = false;
@@ -122,7 +126,7 @@ async function runBlockingSession({
       hadManualFixes = true;
       let copyStatus: CopyStatus | null = null;
       let isWaiting = true;
-      const renderWatchStatus = () => {
+      const renderWatchStatus = (): void => {
         renderBlockWatchStatus(logUpdate, currentSnapshot.manualFixes.length, copyStatus);
       };
 
@@ -131,19 +135,19 @@ async function runBlockingSession({
       try {
         await waitForCwdChange({
           ...(input ? { input } : {}),
-          onKeyPress: (key) => {
+          onKeyPress: (key): void => {
             if (key !== "c" && key !== "C") {
               return;
             }
 
             void copyManualFixes(currentSnapshot.manualFixes, copy)
-              .then(() => {
+              .then((): void => {
                 copyStatus = { status: "success", count: currentSnapshot.manualFixes.length };
               })
-              .catch((error: unknown) => {
+              .catch((error: unknown): void => {
                 copyStatus = { status: "failure", reason: formatError(error) };
               })
-              .finally(() => {
+              .finally((): void => {
                 if (isWaiting) {
                   renderWatchStatus();
                 }
@@ -160,18 +164,24 @@ async function runBlockingSession({
 
 type CopyStatus = { status: "success"; count: number } | { status: "failure"; reason: string };
 
-async function copyManualFixes(manualFixes: BlockingItem[], copy: (text: string) => Promise<void>) {
+async function copyManualFixes(
+  manualFixes: BlockingItem[],
+  copy: (text: string) => Promise<void>,
+): Promise<void> {
   await copy(formatManualFixClipboardText(manualFixes));
 }
 
-function formatManualFixClipboardText(manualFixes: BlockingItem[]) {
+function formatManualFixClipboardText(manualFixes: BlockingItem[]): string {
   return [
     `${manualFixes.length} ${pluralize(manualFixes.length, "manual fix", "manual fixes")} remaining:`,
     ...manualFixes.map((fix) => `- ${stripAnsi(fix.detail)}`),
   ].join("\n");
 }
 
-async function requestConfirmations(logUpdate: LogUpdate, confirmations: BlockingConfirmation[]) {
+async function requestConfirmations(
+  logUpdate: LogUpdate,
+  confirmations: BlockingConfirmation[],
+): Promise<number | null> {
   let confirmedCount = 0;
 
   for (const confirmation of confirmations) {
@@ -188,7 +198,11 @@ async function requestConfirmations(logUpdate: LogUpdate, confirmations: Blockin
   return confirmedCount;
 }
 
-function logBlockingSummary(logUpdate: LogUpdate, snapshot: BlockingSnapshot, policy: BlockPolicy) {
+function logBlockingSummary(
+  logUpdate: LogUpdate,
+  snapshot: BlockingSnapshot,
+  policy: BlockPolicy,
+): void {
   for (const line of formatBlockingSummary(snapshot, policy)) {
     logUpdate.persist(line);
   }
@@ -198,7 +212,7 @@ function renderBlockingSummary(
   logUpdate: LogUpdate,
   snapshot: BlockingSnapshot,
   policy: BlockPolicy,
-) {
+): void {
   const lines = formatBlockingSummary(snapshot, policy);
 
   if (lines.length === 0) {
@@ -208,7 +222,7 @@ function renderBlockingSummary(
   logUpdate(lines.join("\n"));
 }
 
-function formatBlockingSummary(snapshot: BlockingSnapshot, policy: BlockPolicy) {
+function formatBlockingSummary(snapshot: BlockingSnapshot, policy: BlockPolicy): string[] {
   const lines: string[] = [];
 
   if (snapshot.manualFixes.length > 0) {
@@ -275,7 +289,7 @@ function formatBlockingSummary(snapshot: BlockingSnapshot, policy: BlockPolicy) 
   return lines;
 }
 
-function appendCappedDetails(lines: string[], items: BlockingItem[]) {
+function appendCappedDetails(lines: string[], items: BlockingItem[]): void {
   for (const item of items.slice(0, maxPersistedDetails)) {
     lines.push(logStyle.detail(item.detail, 3));
   }
@@ -312,7 +326,7 @@ function renderBlockWatchStatus(
   logUpdate: LogUpdate,
   manualFixCount: number,
   copyStatus: CopyStatus | null,
-) {
+): void {
   const lines = [
     logStyle.info(
       `Watching for project changes (${manualFixCount} ${pluralize(
@@ -340,7 +354,7 @@ function renderBlockWatchStatus(
   logUpdate(lines.join("\n"));
 }
 
-function hasBlockingItems(snapshot: BlockingSnapshot) {
+function hasBlockingItems(snapshot: BlockingSnapshot): boolean {
   return (
     snapshot.manualFixes.length > 0 ||
     snapshot.confirmations.length > 0 ||
