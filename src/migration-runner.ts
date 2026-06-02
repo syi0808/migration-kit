@@ -3,7 +3,14 @@ import { configChangesTask } from "./tasks/config-changes.js";
 import { dependenciesTask } from "./tasks/dependencies.js";
 import { environmentTask } from "./tasks/environment.js";
 import { packageVersionTask } from "./tasks/package-version.js";
-import type { MigrationRunnerOptions } from "./types.js";
+import type {
+  ApiChange,
+  ConfigChange,
+  MigrationRunnerOptions,
+  ResolvedApiChange,
+  ResolvedConfigChange,
+  ResolvedMigrationRunnerOptions,
+} from "./types.js";
 import { existsSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
 import { createLogUpdate } from "log-update";
@@ -13,6 +20,8 @@ import { logStyle } from "./utils/log-style.js";
 const logUpdate = createLogUpdate(process.stdout);
 
 function createMigrationRunner(options: MigrationRunnerOptions): { run: () => Promise<void> } {
+  const resolvedOptions = resolveMigrationRunnerOptions(options);
+
   const run = async () => {
     const runtime = createMigrationRuntime();
 
@@ -28,7 +37,7 @@ function createMigrationRunner(options: MigrationRunnerOptions): { run: () => Pr
         packageVersionUpdates,
         apiChanges,
         configChanges,
-      } = options;
+      } = resolvedOptions;
 
       try {
         logUpdate.persist(logStyle.section(`${name} (${from} → ${to})`));
@@ -37,28 +46,28 @@ function createMigrationRunner(options: MigrationRunnerOptions): { run: () => Pr
           logUpdate.persist(logStyle.info(`Docs: ${docs}`, 0));
         }
 
-        if (environment && environment.length > 0) {
+        if (environment.length > 0) {
           logUpdate.persist(logStyle.section("Environment"));
 
           await environmentTask(logUpdate, environment);
         }
 
-        if (peerDependencies && peerDependencies.length > 0) {
+        if (peerDependencies.length > 0) {
           logUpdate.persist(logStyle.section("Dependencies"));
 
           await dependenciesTask(logUpdate, peerDependencies);
         }
 
-        if (packageVersionUpdates && packageVersionUpdates.length > 0) {
+        if (packageVersionUpdates.length > 0) {
           logUpdate.persist(logStyle.section("Package Versions"));
 
-          await packageVersionTask(logUpdate, packageVersionUpdates, { from, to });
+          await packageVersionTask(logUpdate, packageVersionUpdates);
         }
 
-        if (configChanges && configChanges.length > 0) {
+        if (configChanges.length > 0) {
           logUpdate.persist(logStyle.section("Config Changes"));
 
-          const foundConfigPath = findConfigPath(configPath ?? []);
+          const foundConfigPath = findConfigPath(configPath);
 
           if (foundConfigPath) {
             await configChangesTask(logUpdate, configChanges, foundConfigPath);
@@ -67,7 +76,7 @@ function createMigrationRunner(options: MigrationRunnerOptions): { run: () => Pr
           }
         }
 
-        if (apiChanges && apiChanges.length > 0) {
+        if (apiChanges.length > 0) {
           logUpdate.persist(logStyle.section("API Changes"));
 
           await apiChangesTask(logUpdate, apiChanges);
@@ -81,6 +90,41 @@ function createMigrationRunner(options: MigrationRunnerOptions): { run: () => Pr
   };
 
   return { run };
+}
+
+function resolveMigrationRunnerOptions(
+  options: MigrationRunnerOptions,
+): ResolvedMigrationRunnerOptions {
+  return {
+    name: options.name,
+    from: options.from,
+    to: options.to,
+    ...(options.docs !== undefined ? { docs: options.docs } : {}),
+    configPath: options.configPath ?? [],
+    environment: options.environment ?? [],
+    peerDependencies: options.peerDependencies ?? [],
+    packageVersionUpdates: (options.packageVersionUpdates ?? []).map((update) => ({
+      dependency: update.dependency,
+      from: update.from ?? options.from,
+      to: update.to ?? options.to,
+    })),
+    configChanges: (options.configChanges ?? []).map(resolveConfigChange),
+    apiChanges: (options.apiChanges ?? []).map(resolveApiChange),
+  };
+}
+
+function resolveConfigChange(change: ConfigChange): ResolvedConfigChange {
+  return {
+    ...change,
+    policy: change.policy ?? "blocking",
+  };
+}
+
+function resolveApiChange(change: ApiChange): ResolvedApiChange {
+  return {
+    ...change,
+    policy: change.policy ?? "blocking",
+  };
 }
 
 function findConfigPath(configPath: string[]): string | null {

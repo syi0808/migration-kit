@@ -41,6 +41,7 @@ describe("apiChangesTask", () => {
     await apiChangesTask(logUpdate, [
       {
         title: "Update mock implementation",
+        policy: "blocking",
         files: ["src/**/*.test.ts"],
         transform: (filePath) => {
           transformedFiles.push(relative(projectRoot, filePath));
@@ -77,6 +78,7 @@ describe("apiChangesTask", () => {
     await apiChangesTask(logUpdate, [
       {
         title: "Update tests",
+        policy: "blocking",
         files: ["src/**/*.test.ts"],
       },
     ]);
@@ -97,6 +99,7 @@ describe("apiChangesTask", () => {
     await apiChangesTask(logUpdate, [
       {
         title: "Scan source files",
+        policy: "blocking",
         files: ["src/**/*.ts"],
         transform: (filePath) => ({ status: "unchanged", filePath }),
       },
@@ -460,6 +463,7 @@ describe("apiChangesTask", () => {
       apiChangesTask(logUpdate, [
         {
           title: "Rewrite old API",
+          policy: "blocking",
           files: ["src/**/*.ts"],
           transform: () => {
             throw new Error("transform failed");

@@ -233,6 +233,7 @@ describe("configChangesTask", () => {
         [
           {
             title: "Rewrite config",
+            policy: "blocking",
             transform: () => {
               throw new Error("transform failed");
             },

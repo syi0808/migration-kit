@@ -1,6 +1,6 @@
 import type { createLogUpdate } from "log-update";
 import { isAbsolute, relative } from "node:path";
-import type { BlockFinding, ConfigChange, TransformResult, Transformer } from "../types.js";
+import type { BlockFinding, ResolvedConfigChange, TransformResult, Transformer } from "../types.js";
 import { logStyle } from "../utils/log-style.js";
 import {
   runBlockingSession,
@@ -11,7 +11,7 @@ import {
 
 async function configChangesTask(
   logUpdate: ReturnType<typeof createLogUpdate>,
-  checks: ConfigChange[],
+  checks: ResolvedConfigChange[],
   configPath: string,
 ) {
   let hasFailure = false;
@@ -45,23 +45,21 @@ async function configChangesTask(
 
 async function waitForConfigBlockCheck(
   logUpdate: ReturnType<typeof createLogUpdate>,
-  check: ConfigChange,
+  check: ResolvedConfigChange,
   configPath: string,
 ) {
   if (!check.shouldBlock) {
     return false;
   }
 
-  const policy = check.policy ?? "blocking";
-
   return runBlockingSession({
     logUpdate,
-    policy,
+    policy: check.policy,
     collectSnapshot: () => collectBlockSummary(check, configPath),
   });
 }
 
-function collectBlockSummary(check: ConfigChange, configPath: string): BlockingSnapshot {
+function collectBlockSummary(check: ResolvedConfigChange, configPath: string): BlockingSnapshot {
   const snapshot: BlockingSnapshot = {
     manualFixes: [],
     confirmations: [],
@@ -120,7 +118,7 @@ async function runTransform(transform: Transformer, filePath: string): Promise<T
 }
 
 function runBlockCheck(
-  shouldBlock: NonNullable<ConfigChange["shouldBlock"]>,
+  shouldBlock: NonNullable<ResolvedConfigChange["shouldBlock"]>,
   filePath: string,
 ): BlockCheckResult {
   try {

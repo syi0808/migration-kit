@@ -1,7 +1,7 @@
 import type { createLogUpdate } from "log-update";
 import { isAbsolute, relative } from "node:path";
 import { glob } from "tinyglobby";
-import type { ApiChange, BlockFinding, TransformResult, Transformer } from "../types.js";
+import type { BlockFinding, ResolvedApiChange, TransformResult, Transformer } from "../types.js";
 import { logStyle } from "../utils/log-style.js";
 import { createProgressTui } from "../utils/progress.js";
 import {
@@ -11,7 +11,10 @@ import {
   type BlockingSnapshot,
 } from "./blocking-session.js";
 
-async function apiChangesTask(logUpdate: ReturnType<typeof createLogUpdate>, checks: ApiChange[]) {
+async function apiChangesTask(
+  logUpdate: ReturnType<typeof createLogUpdate>,
+  checks: ResolvedApiChange[],
+) {
   let hasFailure = false;
 
   for (const check of checks) {
@@ -107,24 +110,22 @@ function createSummary(): Summary {
 
 async function waitForApiBlockCheck(
   logUpdate: ReturnType<typeof createLogUpdate>,
-  check: ApiChange,
+  check: ResolvedApiChange,
 ) {
   if (!check.shouldBlock) {
     return false;
   }
 
-  const policy = check.policy ?? "blocking";
-
   return runBlockingSession({
     logUpdate,
-    policy,
+    policy: check.policy,
     collectSnapshot: () => collectBlockSummary(logUpdate, check),
   });
 }
 
 async function collectBlockSummary(
   logUpdate: ReturnType<typeof createLogUpdate>,
-  check: ApiChange,
+  check: ResolvedApiChange,
 ): Promise<BlockingSnapshot> {
   const snapshot: BlockingSnapshot = {
     manualFixes: [],
@@ -186,7 +187,7 @@ async function runTransform(transform: Transformer, filePath: string): Promise<T
 }
 
 function runBlockCheck(
-  shouldBlock: NonNullable<ApiChange["shouldBlock"]>,
+  shouldBlock: NonNullable<ResolvedApiChange["shouldBlock"]>,
   filePath: string,
 ): BlockCheckStatus {
   try {

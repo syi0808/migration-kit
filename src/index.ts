@@ -26,6 +26,10 @@ export type {
   MigrationRunnerOptions,
   PackageVersionUpdate,
   PeerDependency,
+  ResolvedApiChange,
+  ResolvedConfigChange,
+  ResolvedMigrationRunnerOptions,
+  ResolvedPackageVersionUpdate,
   Transformer,
   TransformResult,
 } from "./types.js";

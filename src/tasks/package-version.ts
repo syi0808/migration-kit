@@ -5,7 +5,7 @@ import { get } from "node:https";
 import { join } from "node:path";
 import type { createLogUpdate } from "log-update";
 import semver from "semver";
-import type { PackageVersionUpdate } from "../types.js";
+import type { ResolvedPackageVersionUpdate } from "../types.js";
 import { logStyle, stripAnsi } from "../utils/log-style.js";
 
 const dependencyFields = [
@@ -35,8 +35,6 @@ type PackageJson = {
 
 type PackageVersionTaskOptions = {
   cwd?: string;
-  from: string;
-  to: string;
   runInstall?: RunPackageManagerInstall;
   resolvePackageVersion?: ResolvePackageVersion;
 };
@@ -75,8 +73,8 @@ type PackageVersionUpdateResult =
 
 async function packageVersionTask(
   logUpdate: ReturnType<typeof createLogUpdate>,
-  updates: PackageVersionUpdate[],
-  options: PackageVersionTaskOptions,
+  updates: ResolvedPackageVersionUpdate[],
+  options: PackageVersionTaskOptions = {},
 ) {
   const cwd = options.cwd ?? process.cwd();
   const packageJsonPath = join(cwd, "package.json");
@@ -100,10 +98,7 @@ async function packageVersionTask(
     const result = await updatePackageVersion(
       packageJsonSource.packageJson,
       update,
-      {
-        from: update.from ?? options.from,
-        to: update.to ?? options.to,
-      },
+      { from: update.from, to: update.to },
       options.resolvePackageVersion ?? resolveLatestPackageVersion,
     );
 
@@ -183,7 +178,7 @@ function detectPackageManager(
 
 async function updatePackageVersion(
   packageJson: PackageJson,
-  update: PackageVersionUpdate,
+  update: ResolvedPackageVersionUpdate,
   versionRange: { from: string; to: string },
   resolvePackageVersion: ResolvePackageVersion,
 ): Promise<PackageVersionUpdateResult> {

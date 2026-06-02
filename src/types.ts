@@ -24,6 +24,19 @@ export type MigrationRunnerOptions =
       apiChanges?: ApiChange[];
     };
 
+export interface ResolvedMigrationRunnerOptions {
+  name: string;
+  from: string;
+  to: string;
+  docs?: string;
+  configPath: string[];
+  environment: EnvironmentRequirementCheck[];
+  peerDependencies: PeerDependency[];
+  packageVersionUpdates: ResolvedPackageVersionUpdate[];
+  configChanges: ResolvedConfigChange[];
+  apiChanges: ResolvedApiChange[];
+}
+
 export type EnvironmentAvailableStatus = boolean;
 
 export type EnvironmentRequirementResult =
@@ -59,6 +72,11 @@ export interface PackageVersionUpdate {
   to?: string;
 }
 
+export type ResolvedPackageVersionUpdate = Omit<PackageVersionUpdate, "from" | "to"> & {
+  from: string;
+  to: string;
+};
+
 export type BlockPolicy = "blocking" | "advisory";
 export type BlockKind = "manual-fix" | "manual-confirmation";
 
@@ -84,6 +102,10 @@ export interface ConfigChange {
   transform?: Transformer;
 }
 
+export type ResolvedConfigChange = Omit<ConfigChange, "policy"> & {
+  policy: BlockPolicy;
+};
+
 export interface ApiChange {
   title: string;
   description?: string;
@@ -92,6 +114,10 @@ export interface ApiChange {
   shouldBlock?: (filePath: string) => BlockCheckResult;
   transform?: Transformer;
 }
+
+export type ResolvedApiChange = Omit<ApiChange, "policy"> & {
+  policy: BlockPolicy;
+};
 
 export type TransformResult =
   | { status: "updated"; filePath: string }
