@@ -1,10 +1,10 @@
-import type { createLogUpdate } from "log-update";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { requestManualConfirmation } from "../utils/manual-confirmation.js";
 import { stripAnsi } from "../utils/log-style.js";
+import { MigrationRenderer, type LogUpdate } from "../utils/renderer.js";
 import { configChangesTask } from "./config-changes.js";
 
 vi.mock("../utils/manual-confirmation.js", () => ({
@@ -262,11 +262,8 @@ function createProject(files: Record<string, string>): string {
   return directory;
 }
 
-function createTestLogUpdate(
-  messages: string[],
-  liveMessages: string[] = [],
-): ReturnType<typeof createLogUpdate> {
-  return Object.assign(
+function createTestLogUpdate(messages: string[], liveMessages: string[] = []): MigrationRenderer {
+  const logUpdate = Object.assign(
     (...text: string[]) => {
       liveMessages.push(stripAnsi(text.join(" ")));
     },
@@ -277,5 +274,7 @@ function createTestLogUpdate(
         messages.push(stripAnsi(text.join(" ")));
       },
     },
-  );
+  ) as LogUpdate;
+
+  return new MigrationRenderer(logUpdate);
 }

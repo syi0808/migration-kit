@@ -1,8 +1,6 @@
-import type { createLogUpdate } from "log-update";
 import type { BlockPolicy } from "../types.js";
+import type { MigrationRenderer } from "../utils/renderer.js";
 import type { KeyInputStream } from "../utils/watch.js";
-
-type LogUpdate = ReturnType<typeof createLogUpdate>;
 
 type BlockingItem = {
   key: string;
@@ -20,7 +18,7 @@ type BlockingSnapshot = {
 };
 
 type BlockingSessionOptions = {
-  logUpdate: LogUpdate;
+  renderer: MigrationRenderer;
   policy: BlockPolicy;
   collectSnapshot: () => BlockingSnapshot | Promise<BlockingSnapshot>;
   copy?: (text: string) => Promise<void>;
@@ -35,5 +33,4 @@ export type {
   BlockingSessionOptions,
   BlockingSnapshot,
   CopyStatus,
-  LogUpdate,
 };

@@ -13,11 +13,10 @@ import type {
 } from "./types.js";
 import { existsSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
-import { createLogUpdate } from "log-update";
 import { createMigrationRuntime, runWithMigrationRuntime } from "./migration-runtime.js";
-import { logStyle } from "./utils/log-style.js";
+import { MigrationRenderer } from "./utils/renderer.js";
 
-const logUpdate = createLogUpdate(process.stdout);
+const renderer = MigrationRenderer.stdout();
 
 function createMigrationRunner(options: MigrationRunnerOptions): { run: () => Promise<void> } {
   const resolvedOptions = resolveMigrationRunnerOptions(options);
@@ -40,51 +39,51 @@ function createMigrationRunner(options: MigrationRunnerOptions): { run: () => Pr
       } = resolvedOptions;
 
       try {
-        logUpdate.persist(logStyle.section(`${name} (${from} → ${to})`));
+        renderer.section(`${name} (${from} → ${to})`);
 
         if (docs) {
-          logUpdate.persist(logStyle.info(`Docs: ${docs}`, 0));
+          renderer.info(`Docs: ${docs}`, 0);
         }
 
         if (environment.length > 0) {
-          logUpdate.persist(logStyle.section("Environment"));
+          renderer.section("Environment");
 
-          await environmentTask(logUpdate, environment);
+          await environmentTask(renderer, environment);
         }
 
         if (peerDependencies.length > 0) {
-          logUpdate.persist(logStyle.section("Dependencies"));
+          renderer.section("Dependencies");
 
-          await dependenciesTask(logUpdate, peerDependencies);
+          await dependenciesTask(renderer, peerDependencies);
         }
 
         if (packageVersionUpdates.length > 0) {
-          logUpdate.persist(logStyle.section("Package Versions"));
+          renderer.section("Package Versions");
 
-          await packageVersionTask(logUpdate, packageVersionUpdates);
+          await packageVersionTask(renderer, packageVersionUpdates);
         }
 
         if (configChanges.length > 0) {
-          logUpdate.persist(logStyle.section("Config Changes"));
+          renderer.section("Config Changes");
 
           const foundConfigPath = findConfigPath(configPath);
 
           if (foundConfigPath) {
-            await configChangesTask(logUpdate, configChanges, foundConfigPath);
+            await configChangesTask(renderer, configChanges, foundConfigPath);
           } else {
-            logUpdate.persist(logStyle.skipped("Config file not found."));
+            renderer.skipped("Config file not found.");
           }
         }
 
         if (apiChanges.length > 0) {
-          logUpdate.persist(logStyle.section("API Changes"));
+          renderer.section("API Changes");
 
-          await apiChangesTask(logUpdate, apiChanges);
+          await apiChangesTask(renderer, apiChanges);
         }
 
-        logUpdate.persist(logStyle.success(`${name} completed`, 0));
+        renderer.success(`${name} completed`, 0);
       } catch {
-        logUpdate.persist(logStyle.error(`${name} failed`, 0));
+        renderer.error(`${name} failed`, 0);
       }
     });
   };

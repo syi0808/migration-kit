@@ -1,9 +1,9 @@
-import type { createLogUpdate } from "log-update";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { stripAnsi } from "../utils/log-style.js";
+import { MigrationRenderer, type LogUpdate } from "../utils/renderer.js";
 import { detectPackageManager, packageVersionTask } from "./package-version.js";
 import type {
   PackageManager,
@@ -319,11 +319,8 @@ function recordPackageVersionResolution(
   };
 }
 
-function createTestLogUpdate(
-  messages: string[],
-  updates: string[] = [],
-): ReturnType<typeof createLogUpdate> {
-  return Object.assign(
+function createTestLogUpdate(messages: string[], updates: string[] = []): MigrationRenderer {
+  const logUpdate = Object.assign(
     (text = "") => {
       updates.push(stripAnsi(text));
     },
@@ -334,5 +331,7 @@ function createTestLogUpdate(
         messages.push(stripAnsi(text.join(" ")));
       },
     },
-  );
+  ) as LogUpdate;
+
+  return new MigrationRenderer(logUpdate);
 }

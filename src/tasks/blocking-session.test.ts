@@ -1,10 +1,10 @@
-import type { createLogUpdate } from "log-update";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { PassThrough } from "node:stream";
 import { afterEach, describe, expect, it } from "vitest";
 import { stripAnsi } from "../utils/log-style.js";
+import { MigrationRenderer, type LogUpdate } from "../utils/renderer.js";
 import { runBlockingSession } from "./blocking-session.js";
 
 const originalCwd = process.cwd();
@@ -41,7 +41,7 @@ describe("runBlockingSession", () => {
     }, 100);
 
     await runBlockingSession({
-      logUpdate,
+      renderer: logUpdate,
       policy: "blocking",
       input,
       copy: async (text) => {
@@ -116,11 +116,8 @@ function createProject(files: Record<string, string>): string {
   return directory;
 }
 
-function createTestLogUpdate(
-  messages: string[],
-  liveMessages: string[] = [],
-): ReturnType<typeof createLogUpdate> {
-  return Object.assign(
+function createTestLogUpdate(messages: string[], liveMessages: string[] = []): MigrationRenderer {
+  const logUpdate = Object.assign(
     (...text: string[]) => {
       liveMessages.push(stripAnsi(text.join(" ")));
     },
@@ -131,5 +128,7 @@ function createTestLogUpdate(
         messages.push(stripAnsi(text.join(" ")));
       },
     },
-  );
+  ) as LogUpdate;
+
+  return new MigrationRenderer(logUpdate);
 }

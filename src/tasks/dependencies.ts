@@ -1,15 +1,11 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { createLogUpdate } from "log-update";
 import type { PeerDependency } from "../types.js";
-import { logStyle } from "../utils/log-style.js";
+import type { MigrationRenderer } from "../utils/renderer.js";
 import type { DependencyCheckResult, PackageJson } from "./dependencies.types.js";
 import semver from "semver";
 
-function dependenciesTask(
-  logUpdate: ReturnType<typeof createLogUpdate>,
-  checks: PeerDependency[],
-): void {
+function dependenciesTask(renderer: MigrationRenderer, checks: PeerDependency[]): void {
   const packageJson = readPackageJson(process.cwd());
   let hasFailure = false;
 
@@ -20,9 +16,12 @@ function dependenciesTask(
       hasFailure = true;
     }
 
-    logUpdate.persist(
-      result.satisfied ? logStyle.success(result.message) : logStyle.error(result.message),
-    );
+    if (result.satisfied) {
+      renderer.success(result.message);
+      continue;
+    }
+
+    renderer.error(result.message);
   }
 
   if (hasFailure) {

@@ -1,7 +1,7 @@
-import type { createLogUpdate } from "log-update";
 import { describe, expect, it } from "vitest";
 import type { EnvironmentRequirementCheck } from "../types.js";
 import { stripAnsi } from "../utils/log-style.js";
+import { MigrationRenderer, type LogUpdate } from "../utils/renderer.js";
 import { environmentTask } from "./environment.js";
 
 describe("environmentTask", () => {
@@ -71,12 +71,14 @@ function createCheck(
   return Object.assign(() => result, metadata);
 }
 
-function createTestLogUpdate(messages: string[]): ReturnType<typeof createLogUpdate> {
-  return Object.assign(() => {}, {
+function createTestLogUpdate(messages: string[]): MigrationRenderer {
+  const logUpdate = Object.assign(() => {}, {
     clear: () => {},
     done: () => {},
     persist: (...text: string[]) => {
       messages.push(stripAnsi(text.join(" ")));
     },
-  });
+  }) as LogUpdate;
+
+  return new MigrationRenderer(logUpdate);
 }

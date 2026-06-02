@@ -1,7 +1,6 @@
-import type { createLogUpdate } from "log-update";
 import type { ResolvedConfigChange, TransformResult } from "../types.js";
-import { logStyle } from "../utils/log-style.js";
 import { formatPlainPath } from "../utils/path-format.js";
+import type { MigrationRenderer } from "../utils/renderer.js";
 import { runBlockCheck, type NormalizedBlockFinding } from "./block-check.js";
 import {
   runBlockingSession,
@@ -13,23 +12,23 @@ import type { ManualConfirmationFinding } from "./config-changes.types.js";
 import { runTransform } from "./transform.js";
 
 async function configChangesTask(
-  logUpdate: ReturnType<typeof createLogUpdate>,
+  renderer: MigrationRenderer,
   checks: ResolvedConfigChange[],
   configPath: string,
 ): Promise<void> {
   let hasFailure = false;
 
   for (const check of checks) {
-    logUpdate.persist(logStyle.info(check.title));
+    renderer.info(check.title);
 
     if (check.description) {
-      logUpdate.persist(logStyle.detail(check.description));
+      renderer.detail(check.description);
     }
 
     if (check.transform) {
       const result = await runTransform(check.transform, configPath);
 
-      logTransformResult(logUpdate, result);
+      logTransformResult(renderer, result);
 
       if (result.status === "failed") {
         hasFailure = true;
@@ -37,7 +36,7 @@ async function configChangesTask(
     }
 
     if (check.shouldBlock) {
-      hasFailure = (await waitForConfigBlockCheck(logUpdate, check, configPath)) || hasFailure;
+      hasFailure = (await waitForConfigBlockCheck(renderer, check, configPath)) || hasFailure;
     }
   }
 
@@ -47,7 +46,7 @@ async function configChangesTask(
 }
 
 async function waitForConfigBlockCheck(
-  logUpdate: ReturnType<typeof createLogUpdate>,
+  renderer: MigrationRenderer,
   check: ResolvedConfigChange,
   configPath: string,
 ): Promise<boolean> {
@@ -56,7 +55,7 @@ async function waitForConfigBlockCheck(
   }
 
   return runBlockingSession({
-    logUpdate,
+    renderer,
     policy: check.policy,
     collectSnapshot: () => collectBlockSummary(check, configPath),
   });
@@ -138,28 +137,25 @@ function createManualConfirmation(
   };
 }
 
-function logTransformResult(
-  logUpdate: ReturnType<typeof createLogUpdate>,
-  result: TransformResult,
-): void {
+function logTransformResult(renderer: MigrationRenderer, result: TransformResult): void {
   if (result.status === "updated") {
-    logUpdate.persist(logStyle.success("Updated", 2));
+    renderer.success("Updated", 2);
     return;
   }
 
   if (result.status === "unchanged") {
-    logUpdate.persist(logStyle.success("Unchanged", 2));
+    renderer.success("Unchanged", 2);
     return;
   }
 
   if (result.status === "needs-review") {
-    logUpdate.persist(logStyle.warning("Needs review", 2));
-    logUpdate.persist(logStyle.detail(result.reason, 3));
+    renderer.warning("Needs review", 2);
+    renderer.detail(result.reason, 3);
     return;
   }
 
-  logUpdate.persist(logStyle.error("Failed", 2));
-  logUpdate.persist(logStyle.detail(result.reason, 3));
+  renderer.error("Failed", 2);
+  renderer.detail(result.reason, 3);
 }
 
 export { configChangesTask };

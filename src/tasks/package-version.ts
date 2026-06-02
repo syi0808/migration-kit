@@ -3,10 +3,10 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { get as httpGet } from "node:http";
 import { get } from "node:https";
 import { join } from "node:path";
-import type { createLogUpdate } from "log-update";
 import semver from "semver";
 import type { ResolvedPackageVersionUpdate } from "../types.js";
 import { logStyle, stripAnsi } from "../utils/log-style.js";
+import type { MigrationRenderer } from "../utils/renderer.js";
 import type {
   DependencyField,
   DependencyMatch,
@@ -40,7 +40,7 @@ const packageManagerLockfiles = [
 ] satisfies ReadonlyArray<{ fileName: string; packageManager: PackageManager }>;
 
 async function packageVersionTask(
-  logUpdate: ReturnType<typeof createLogUpdate>,
+  renderer: MigrationRenderer,
   updates: ResolvedPackageVersionUpdate[],
   options: PackageVersionTaskOptions = {},
 ): Promise<void> {
@@ -56,10 +56,8 @@ async function packageVersionTask(
   let hasFailure = false;
   let hasUpdate = false;
 
-  logUpdate.persist(
-    logStyle.info(
-      `Detected ${packageManager.packageManager} package manager (${packageManager.source})`,
-    ),
+  renderer.info(
+    `Detected ${packageManager.packageManager} package manager (${packageManager.source})`,
   );
 
   for (const update of updates) {
@@ -72,21 +70,19 @@ async function packageVersionTask(
 
     if (result.status === "updated") {
       hasUpdate = true;
-      logUpdate.persist(
-        logStyle.success(
-          `${result.dependency} ${result.currentVersion} → ${result.nextVersion} (${result.field})`,
-        ),
+      renderer.success(
+        `${result.dependency} ${result.currentVersion} → ${result.nextVersion} (${result.field})`,
       );
       continue;
     }
 
     if (result.status === "failed") {
       hasFailure = true;
-      logUpdate.persist(logStyle.error(`${result.dependency} ${result.reason}`));
+      renderer.error(`${result.dependency} ${result.reason}`);
       continue;
     }
 
-    logUpdate.persist(logStyle.skipped(`${result.dependency} ${result.reason}`));
+    renderer.skipped(`${result.dependency} ${result.reason}`);
   }
 
   if (hasFailure) {
@@ -94,7 +90,7 @@ async function packageVersionTask(
   }
 
   if (!hasUpdate) {
-    logUpdate.persist(logStyle.success("Package versions already up to date"));
+    renderer.success("Package versions already up to date");
     return;
   }
 
@@ -103,7 +99,7 @@ async function packageVersionTask(
     stringifyPackageJson(packageJsonSource.packageJson, packageJsonSource.source),
   );
 
-  const installOutputPreview = createInstallOutputPreview(logUpdate, packageManager.packageManager);
+  const installOutputPreview = createInstallOutputPreview(renderer, packageManager.packageManager);
 
   installOutputPreview.render();
 
@@ -117,9 +113,7 @@ async function packageVersionTask(
     installOutputPreview.clear();
   }
 
-  logUpdate.persist(
-    logStyle.success(`Dependencies installed with ${packageManager.packageManager}`),
-  );
+  renderer.success(`Dependencies installed with ${packageManager.packageManager}`);
 }
 
 function detectPackageManager(
@@ -448,7 +442,7 @@ function detectJsonIndent(source: string): string | number {
 }
 
 function createInstallOutputPreview(
-  logUpdate: ReturnType<typeof createLogUpdate>,
+  renderer: MigrationRenderer,
   packageManager: PackageManager,
 ): InstallOutputPreview {
   const state: InstallOutputPreviewState = {
@@ -463,7 +457,7 @@ function createInstallOutputPreview(
       ...outputLines.map((line) => logStyle.detail(line, 2)),
     ].join("\n");
 
-    logUpdate(message);
+    renderer.live(message);
   };
 
   return {
@@ -472,7 +466,7 @@ function createInstallOutputPreview(
       render();
     },
     clear(): void {
-      logUpdate.clear();
+      renderer.clear();
     },
     render,
   };

@@ -1,10 +1,9 @@
-import type { createLogUpdate } from "log-update";
 import type { EnvironmentRequirementCheck, EnvironmentRequirementResult } from "../types.js";
 import { formatError } from "../utils/error.js";
-import { logStyle } from "../utils/log-style.js";
+import type { MigrationRenderer } from "../utils/renderer.js";
 
 async function environmentTask(
-  logUpdate: ReturnType<typeof createLogUpdate>,
+  renderer: MigrationRenderer,
   checks: EnvironmentRequirementCheck[],
 ): Promise<void> {
   for (const [index, check] of checks.entries()) {
@@ -14,14 +13,16 @@ async function environmentTask(
       const message = formatCheckMessage(check, result, available, index);
       const formattedMessage = formatResultEvidence(message, result, available);
 
-      logUpdate.persist(
-        available ? logStyle.success(formattedMessage) : logStyle.error(formattedMessage),
-      );
+      if (available) {
+        renderer.success(formattedMessage);
+      } else {
+        renderer.error(formattedMessage);
+      }
     } catch (error) {
       const label = check.label ?? `Check ${index + 1}`;
       const message = formatError(error);
 
-      logUpdate.persist(logStyle.error(`${label}: ${message}`));
+      renderer.error(`${label}: ${message}`);
     }
   }
 }

@@ -11,7 +11,6 @@ import type {
   BlockingSessionOptions,
   BlockingSnapshot,
   CopyStatus,
-  LogUpdate,
 } from "./blocking-session.types.js";
 
 const maxPersistedDetails = 10;
@@ -21,7 +20,7 @@ const maxPersistedDetails = 10;
  * Returns true when execution should fail, and false when the migration can continue.
  */
 async function runBlockingSession({
-  logUpdate,
+  renderer,
   policy,
   collectSnapshot,
   copy = copyToClipboard,
@@ -45,36 +44,34 @@ async function runBlockingSession({
     };
 
     if (currentSnapshot.failures.length > 0) {
-      logBlockingSummary(logUpdate, currentSnapshot, policy);
+      logBlockingSummary(renderer, currentSnapshot, policy);
       return true;
     }
 
     if (policy === "advisory") {
-      logBlockingSummary(logUpdate, currentSnapshot, policy);
+      logBlockingSummary(renderer, currentSnapshot, policy);
       return false;
     }
 
     if (!hasBlockingItems(currentSnapshot)) {
       if (hadManualFixes && !hasLoggedManualFixesResolved) {
-        logUpdate.persist(logStyle.success("Manual fixes resolved", 2));
+        renderer.success("Manual fixes resolved", 2);
         hasLoggedManualFixesResolved = true;
       }
 
-      logUpdate.persist(
-        logStyle.success(hadManualFixes || confirmedCount > 0 ? "Resolved" : "Not blocked", 2),
-      );
+      renderer.success(hadManualFixes || confirmedCount > 0 ? "Resolved" : "Not blocked", 2);
       return false;
     }
 
     if (pendingConfirmations.length > 0) {
-      renderBlockingSummary(logUpdate, onlyConfirmations(currentSnapshot), policy);
+      renderBlockingSummary(renderer, onlyConfirmations(currentSnapshot), policy);
 
       let confirmedThisPass: number | null;
 
       try {
-        confirmedThisPass = await requestConfirmations(logUpdate, pendingConfirmations);
+        confirmedThisPass = await requestConfirmations(renderer, pendingConfirmations);
       } finally {
-        logUpdate.clear();
+        renderer.clear();
       }
 
       if (confirmedThisPass === null) {
@@ -86,22 +83,20 @@ async function runBlockingSession({
       }
 
       confirmedCount += confirmedThisPass;
-      logUpdate.persist(
-        logStyle.success(
-          `${confirmedThisPass} ${pluralize(
-            confirmedThisPass,
-            "confirmation acknowledged",
-            "confirmations acknowledged",
-          )}`,
-          2,
-        ),
+      renderer.success(
+        `${confirmedThisPass} ${pluralize(
+          confirmedThisPass,
+          "confirmation acknowledged",
+          "confirmations acknowledged",
+        )}`,
+        2,
       );
       continue;
     }
 
     if (currentSnapshot.manualFixes.length > 0) {
       if (!hasLoggedManualFixSummary) {
-        logBlockingSummary(logUpdate, withoutConfirmations(currentSnapshot), policy);
+        logBlockingSummary(renderer, withoutConfirmations(currentSnapshot), policy);
         hasLoggedManualFixSummary = true;
       }
 
@@ -109,7 +104,7 @@ async function runBlockingSession({
       let copyStatus: CopyStatus | null = null;
       let isWaiting = true;
       const renderWatchStatus = (): void => {
-        renderBlockWatchStatus(logUpdate, currentSnapshot.manualFixes.length, copyStatus);
+        renderBlockWatchStatus(renderer, currentSnapshot.manualFixes.length, copyStatus);
       };
 
       renderWatchStatus();
@@ -138,7 +133,7 @@ async function runBlockingSession({
         });
       } finally {
         isWaiting = false;
-        logUpdate.clear();
+        renderer.clear();
       }
     }
   }
@@ -159,7 +154,7 @@ function formatManualFixClipboardText(manualFixes: BlockingItem[]): string {
 }
 
 async function requestConfirmations(
-  logUpdate: LogUpdate,
+  renderer: BlockingSessionOptions["renderer"],
   confirmations: BlockingConfirmation[],
 ): Promise<number | null> {
   let confirmedCount = 0;
@@ -168,7 +163,7 @@ async function requestConfirmations(
     const confirmed = await requestManualConfirmation(confirmation.prompt);
 
     if (!confirmed) {
-      logUpdate.persist(logStyle.error(`Confirmation declined: ${confirmation.detail}`, 2));
+      renderer.error(`Confirmation declined: ${confirmation.detail}`, 2);
       return null;
     }
 
@@ -179,17 +174,17 @@ async function requestConfirmations(
 }
 
 function logBlockingSummary(
-  logUpdate: LogUpdate,
+  renderer: BlockingSessionOptions["renderer"],
   snapshot: BlockingSnapshot,
   policy: BlockPolicy,
 ): void {
   for (const line of formatBlockingSummary(snapshot, policy)) {
-    logUpdate.persist(line);
+    renderer.persist(line);
   }
 }
 
 function renderBlockingSummary(
-  logUpdate: LogUpdate,
+  renderer: BlockingSessionOptions["renderer"],
   snapshot: BlockingSnapshot,
   policy: BlockPolicy,
 ): void {
@@ -199,7 +194,7 @@ function renderBlockingSummary(
     return;
   }
 
-  logUpdate(lines.join("\n"));
+  renderer.live(lines.join("\n"));
 }
 
 function formatBlockingSummary(snapshot: BlockingSnapshot, policy: BlockPolicy): string[] {
@@ -303,7 +298,7 @@ function onlyConfirmations(snapshot: BlockingSnapshot): BlockingSnapshot {
 }
 
 function renderBlockWatchStatus(
-  logUpdate: LogUpdate,
+  renderer: BlockingSessionOptions["renderer"],
   manualFixCount: number,
   copyStatus: CopyStatus | null,
 ): void {
@@ -331,7 +326,7 @@ function renderBlockWatchStatus(
     lines.push(logStyle.warning(`Clipboard copy failed: ${copyStatus.reason}`, 2));
   }
 
-  logUpdate(lines.join("\n"));
+  renderer.live(lines.join("\n"));
 }
 
 function hasBlockingItems(snapshot: BlockingSnapshot): boolean {

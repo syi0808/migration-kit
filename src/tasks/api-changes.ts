@@ -1,14 +1,12 @@
-import type { createLogUpdate } from "log-update";
 import { glob } from "tinyglobby";
 import type { ResolvedApiChange, TransformResult } from "../types.js";
-import { logStyle } from "../utils/log-style.js";
 import {
   formatFileResult,
   formatPlainFileResult,
   formatPlainPath,
   formatProgressPath,
 } from "../utils/path-format.js";
-import { createProgressTui } from "../utils/progress.js";
+import type { MigrationRenderer } from "../utils/renderer.js";
 import { pluralize } from "../utils/strings.js";
 import { runBlockCheck, type NormalizedBlockFinding } from "./block-check.js";
 import {
@@ -21,29 +19,29 @@ import type { Summary } from "./api-changes.types.js";
 import { runTransform } from "./transform.js";
 
 async function apiChangesTask(
-  logUpdate: ReturnType<typeof createLogUpdate>,
+  renderer: MigrationRenderer,
   checks: ResolvedApiChange[],
 ): Promise<void> {
   let hasFailure = false;
 
   for (const check of checks) {
-    logUpdate.persist(logStyle.info(check.title));
+    renderer.info(check.title);
 
     if (check.description) {
-      logUpdate.persist(logStyle.detail(check.description));
+      renderer.detail(check.description);
     }
 
     const filePaths = await findFiles(check.files);
 
     if (filePaths.length === 0) {
-      logUpdate.persist(logStyle.skipped("No files matched", 2));
+      renderer.skipped("No files matched", 2);
       continue;
     }
 
     const summary = createSummary();
 
     if (check.transform) {
-      const progress = createProgressTui(logUpdate, {
+      const progress = renderer.progress({
         label: "Running transforms",
         total: filePaths.length,
       });
@@ -68,10 +66,10 @@ async function apiChangesTask(
       }
     }
 
-    logTransformSummary(logUpdate, summary);
+    logTransformSummary(renderer, summary);
 
     if (check.shouldBlock) {
-      hasFailure = (await waitForApiBlockCheck(logUpdate, check)) || hasFailure;
+      hasFailure = (await waitForApiBlockCheck(renderer, check)) || hasFailure;
     }
   }
 
@@ -102,7 +100,7 @@ function createSummary(): Summary {
 }
 
 async function waitForApiBlockCheck(
-  logUpdate: ReturnType<typeof createLogUpdate>,
+  renderer: MigrationRenderer,
   check: ResolvedApiChange,
 ): Promise<boolean> {
   if (!check.shouldBlock) {
@@ -110,14 +108,14 @@ async function waitForApiBlockCheck(
   }
 
   return runBlockingSession({
-    logUpdate,
+    renderer,
     policy: check.policy,
-    collectSnapshot: () => collectBlockSummary(logUpdate, check),
+    collectSnapshot: () => collectBlockSummary(renderer, check),
   });
 }
 
 async function collectBlockSummary(
-  logUpdate: ReturnType<typeof createLogUpdate>,
+  renderer: MigrationRenderer,
   check: ResolvedApiChange,
 ): Promise<BlockingSnapshot> {
   const snapshot: BlockingSnapshot = {
@@ -131,7 +129,7 @@ async function collectBlockSummary(
   }
 
   const filePaths = await findFiles(check.files);
-  const progress = createProgressTui(logUpdate, {
+  const progress = renderer.progress({
     label: "Checking blockers",
     total: filePaths.length,
   });
@@ -190,36 +188,31 @@ function recordTransformResult(summary: Summary, result: TransformResult): void 
   summary.failed.push({ filePath: result.filePath, reason: result.reason });
 }
 
-function logTransformSummary(
-  logUpdate: ReturnType<typeof createLogUpdate>,
-  summary: Summary,
-): void {
+function logTransformSummary(renderer: MigrationRenderer, summary: Summary): void {
   if (summary.updated > 0) {
-    logUpdate.persist(logStyle.success(`${summary.updated} auto-fixed`, 2));
+    renderer.success(`${summary.updated} auto-fixed`, 2);
   }
 
   if (summary.unchanged > 0) {
-    logUpdate.persist(logStyle.success(`${summary.unchanged} unchanged`, 2));
+    renderer.success(`${summary.unchanged} unchanged`, 2);
   }
 
   if (summary.needsReview.length > 0) {
-    logUpdate.persist(
-      logStyle.warning(
-        `${summary.needsReview.length} ${pluralize(summary.needsReview.length, "needs review", "need review")}`,
-        2,
-      ),
+    renderer.warning(
+      `${summary.needsReview.length} ${pluralize(summary.needsReview.length, "needs review", "need review")}`,
+      2,
     );
 
     for (const result of summary.needsReview) {
-      logUpdate.persist(logStyle.detail(formatFileResult(result.filePath, result.reason), 3));
+      renderer.detail(formatFileResult(result.filePath, result.reason), 3);
     }
   }
 
   if (summary.failed.length > 0) {
-    logUpdate.persist(logStyle.error(`${summary.failed.length} failed`, 2));
+    renderer.error(`${summary.failed.length} failed`, 2);
 
     for (const result of summary.failed) {
-      logUpdate.persist(logStyle.detail(formatFileResult(result.filePath, result.reason), 3));
+      renderer.detail(formatFileResult(result.filePath, result.reason), 3);
     }
   }
 }
