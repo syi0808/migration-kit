@@ -57,6 +57,7 @@
   },
   "peerDependencies": {
     "ast-grep": "^0.1",
+    "comorph": "^0.2",
     "jscodeshift": "^17"
   },
   "packageManager": "pnpm@10.32.0"

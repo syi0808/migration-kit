@@ -3,6 +3,7 @@ export { readMigrationFileSync } from "./migration-runtime.js";
 export { runtime } from "./runtime-checker/runtime.js";
 export { transformer } from "./transformer/transformer.js";
 export type { AstGrepMatch, AstGrepOptions, AstGrepReplacement } from "./transformer/ast-grep.js";
+export type { CodemodModule, ComorphOptions, ParserAdapter } from "./transformer/comorph.js";
 export { parseJscodeshiftSourceForScan } from "./transformer/jscodeshift.js";
 export type {
   JscodeshiftApi,

@@ -1,6 +1,7 @@
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { call, capture, codemod, expr } from "comorph";
 import { afterEach, describe, expect, it } from "vitest";
 import { transformer } from "./transformer.js";
 
@@ -81,6 +82,83 @@ describe("transformer.astGrep", () => {
 
     await expect(transform(filePath)).resolves.toEqual({ status: "unchanged", filePath });
     expect(readFileSync(filePath, "utf8")).toBe("const value = newValue();\n");
+  });
+});
+
+describe("transformer.comorph", () => {
+  it("writes changed source and reports an updated result", async () => {
+    const filePath = createFile("example.ts", "const value = oldValue();\n");
+    const transform = transformer.comorph(
+      codemod("replace-old-value", ({ files }) => {
+        files
+          .ts()
+          .find(expr`${capture.node("call", call`oldValue()`)}`)
+          .edit(({ call }) => call.replaceWith(expr`newValue()`));
+      }),
+    );
+
+    await expect(transform(filePath)).resolves.toEqual({ status: "updated", filePath });
+    expect(readFileSync(filePath, "utf8")).toBe("const value = newValue();\n");
+  });
+
+  it("reports unchanged when the codemod does not match", async () => {
+    const filePath = createFile("example.ts", "const value = newValue();\n");
+    const transform = transformer.comorph(
+      codemod("replace-old-value", ({ files }) => {
+        files
+          .ts()
+          .find(expr`${capture.node("call", call`oldValue()`)}`)
+          .edit(({ call }) => call.replaceWith(expr`newValue()`));
+      }),
+    );
+
+    await expect(transform(filePath)).resolves.toEqual({ status: "unchanged", filePath });
+  });
+
+  it("reports needs-review without writing partial output", async () => {
+    const source = "const value = oldValue();\n";
+    const filePath = createFile("example.ts", source);
+    const transform = transformer.comorph(
+      codemod("review-old-value", ({ files }) => {
+        files
+          .ts()
+          .find(expr`${capture.node("call", call`oldValue()`)}`)
+          .edit(({ call, review }) => {
+            call.replaceWith(expr`newValue()`);
+            review({ code: "edit.review", message: "Confirm this replacement." });
+          });
+      }),
+    );
+
+    await expect(transform(filePath)).resolves.toEqual({
+      status: "needs-review",
+      filePath,
+      reason: "edit.review: Confirm this replacement.",
+    });
+    expect(readFileSync(filePath, "utf8")).toBe(source);
+  });
+
+  it("reports failed diagnostics without writing partial output", async () => {
+    const source = "const value = oldValue();\n";
+    const filePath = createFile("example.ts", source);
+    const transform = transformer.comorph(
+      codemod("fail-old-value", ({ files }) => {
+        files
+          .ts()
+          .find(expr`${capture.node("call", call`oldValue()`)}`)
+          .edit(({ call, fail }) => {
+            call.replaceWith(expr`newValue()`);
+            fail({ code: "edit.failed", message: "Cannot replace this call." });
+          });
+      }),
+    );
+
+    await expect(transform(filePath)).resolves.toEqual({
+      status: "failed",
+      filePath,
+      reason: "edit.failed: Cannot replace this call.",
+    });
+    expect(readFileSync(filePath, "utf8")).toBe(source);
   });
 });
 

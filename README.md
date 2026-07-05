@@ -10,7 +10,7 @@
 - **Package version updates** - Detect npm, pnpm, Yarn, or Bun and update configured package ranges before transforms run.
 - **Config change handling** - Run a transform against the first matching config file, recheck manual-fix blockers after files change, copy remaining fixes while watching, and prompt for manual confirmations.
 - **API change scanning** - Find files with `tinyglobby`, show progress for large file batches, run transforms, and summarize updated, unchanged, failed, and needs-review files.
-- **Transformer helpers** - Wrap `jscodeshift` and `ast-grep` transforms behind the shared `Transformer` result contract.
+- **Transformer helpers** - Wrap Comorph, `jscodeshift`, and `ast-grep` transforms behind the shared `Transformer` result contract.
 
 ## Getting Started
 
@@ -25,7 +25,7 @@ pnpm add migration-kit
 If you use the built-in transformer helpers, install their peer dependencies too:
 
 ```bash
-pnpm add ast-grep jscodeshift
+pnpm add ast-grep comorph jscodeshift
 ```
 
 ## Usage
@@ -129,6 +129,21 @@ runtime.deno({ version: ">=2.0.0" });
 Runtime checks can read project requirements from `package.json` fields such as `engines`, `volta`, `devEngines.runtime`, and runtime-specific `packageManager` pins. They also check version files such as `.nvmrc`, `.node-version`, `.bun-version`, `.deno-version`, and `.tool-versions` before falling back to the runtime command.
 
 ### `transformer`
+
+`transformer.comorph()` runs a Comorph codemod against one migration file. Failed and review diagnostics map to the shared `failed` and `needs-review` results. Files are written only when the codemod completes without either diagnostic.
+
+```ts
+import { call, capture, codemod, expr } from "comorph";
+
+const replaceLegacyCall = codemod("replace-legacy-call", ({ files }) => {
+  files
+    .jsLike()
+    .find(expr`${capture.node("call", call`legacyApi()`)}`)
+    .edit(({ call }) => call.replaceWith(expr`nextApi()`));
+});
+
+transformer.comorph(replaceLegacyCall);
+```
 
 `transformer.jscodeshift()` wraps a jscodeshift transform function and writes changed source back to disk.
 
