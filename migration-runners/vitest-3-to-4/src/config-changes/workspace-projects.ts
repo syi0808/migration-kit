@@ -1,44 +1,26 @@
 import { readMigrationFileSync, transformer } from "migration-kit";
-import type { BlockCheckResult, ConfigChange, Transformer } from "migration-kit";
-import {
-  getObjectPropertyName,
-  isStringLiteral,
-  isUnderObjectProperty,
-  setObjectPropertyName,
-  type NodePath,
-} from "../utils/jscodeshift.js";
+import type { BlockCheckResult, ConfigChange } from "migration-kit";
+import { vitestConfigCodemod } from "../utils/comorph.js";
 
 const workspaceProjectsChange: ConfigChange = {
   title: "Replace workspace config with projects",
   description:
     "Renames inline test.workspace project definitions to test.projects and flags workspace files that must be merged into the main config.",
   policy: "blocking",
-  transform: createWorkspaceProjectsTransform(),
+  transform: transformer.comorph(
+    vitestConfigCodemod("vitest-4-workspace-projects", (config) => {
+      const workspace = config.get("test.workspace");
+
+      if (workspace.kind !== "value" || workspace.value().kind() === "Literal") {
+        return;
+      }
+
+      const value = config.take("test.workspace").valueOrSkip();
+      config.set("test.projects", value);
+    }),
+  ),
   shouldBlock: workspaceProjectsReviewBlocker,
 };
-
-function createWorkspaceProjectsTransform(): Transformer {
-  return transformer.jscodeshift((fileInfo, api): string => {
-    const j = api.jscodeshift;
-    const root = j(fileInfo.source);
-    let changed = false;
-
-    root.find(j.ObjectProperty).forEach((path: NodePath): void => {
-      if (!isUnderObjectProperty(path, "test")) {
-        return;
-      }
-
-      if (getObjectPropertyName(path.node) !== "workspace" || isStringLiteral(path.node.value)) {
-        return;
-      }
-
-      setObjectPropertyName(j, path.node, "projects");
-      changed = true;
-    });
-
-    return changed ? root.toSource({ quote: "single" }) : fileInfo.source;
-  });
-}
 
 function workspaceProjectsReviewBlocker(filePath: string): BlockCheckResult {
   const source = readMigrationFileSync(filePath);

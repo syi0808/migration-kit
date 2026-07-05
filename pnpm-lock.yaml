@@ -57,6 +57,9 @@ importers:
 
   migration-runners/vitest-3-to-4:
     dependencies:
+      comorph:
+        specifier: ^0.2.0
+        version: 0.2.0
       migration-kit:
         specifier: file:../..
         version: file:(ast-grep@0.1.0)(comorph@0.2.0)(jscodeshift@17.3.0)

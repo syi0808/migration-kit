@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const createMigrationRunner = vi.hoisted(() => vi.fn(() => ({ run: vi.fn() })));
 const nodeRuntimeCheck = vi.hoisted(() => vi.fn(() => true));
 const jscodeshiftTransformer = vi.hoisted(() => vi.fn(() => vi.fn()));
+const comorphTransformer = vi.hoisted(() => vi.fn(() => vi.fn()));
 
 vi.mock("migration-kit", () => ({
   createMigrationRunner,
@@ -10,6 +11,7 @@ vi.mock("migration-kit", () => ({
     node: nodeRuntimeCheck,
   },
   transformer: {
+    comorph: comorphTransformer,
     jscodeshift: jscodeshiftTransformer,
   },
 }));
@@ -19,6 +21,7 @@ afterEach(() => {
   createMigrationRunner.mockClear();
   nodeRuntimeCheck.mockClear();
   jscodeshiftTransformer.mockClear();
+  comorphTransformer.mockClear();
 });
 
 describe("createVitest3To4MigrationRunner", () => {

@@ -1,46 +1,55 @@
+import { call, callArgs, capture, codemod } from "comorph";
 import { transformer } from "migration-kit";
-import type { ApiChange, Transformer } from "migration-kit";
+import type { ApiChange } from "migration-kit";
 import { sourceFilePatterns } from "../patterns.js";
-import { isObjectExpression, isVitestTestCall, type NodePath } from "../utils/jscodeshift.js";
 
 const moveTestOptions: ApiChange = {
   title: "Move test and describe option objects",
   description:
     "Rewrites test(name, fn, options) and describe(name, fn, options) to the Vitest 4 argument order.",
   files: sourceFilePatterns,
-  transform: createVitestTestOptionsTransform(),
+  transform: transformer.comorph(
+    codemod("vitest-4-test-options-order", ({ files }) => {
+      files
+        .jsLike()
+        .find(
+          call`${capture.reference("testApi", { kind: "call-callee" })}(${capture.args("args")})`,
+        )
+        .where(({ testApi, args }) => {
+          const name = testApi.text();
+          const handler = args.at(1);
+          const options = args.at(2);
+
+          return (
+            (name === "test" ||
+              name === "it" ||
+              name === "describe" ||
+              name.startsWith("test.") ||
+              name.startsWith("it.") ||
+              name.startsWith("describe.")) &&
+            args.items.length === 3 &&
+            handler?.kind() !== "ObjectExpression" &&
+            options?.kind() === "ObjectExpression"
+          );
+        })
+        .edit(({ args, skip }) => {
+          const handler = args.at(1);
+          const options = args.at(2);
+
+          if (!handler || !options) {
+            skip({
+              code: "vitest-test-options.missing-argument",
+              message: "The test call does not have the expected arguments.",
+            });
+            return;
+          }
+
+          const editor = callArgs(args);
+          editor.set(1, options);
+          editor.set(2, handler);
+        });
+    }),
+  ),
 };
 
-function createVitestTestOptionsTransform(): Transformer {
-  return transformer.jscodeshift((fileInfo, api): string => {
-    const j = api.jscodeshift;
-    const root = j(fileInfo.source);
-    let changed = false;
-
-    root.find(j.CallExpression).forEach((path: NodePath): void => {
-      const call = path.node;
-
-      if (!isVitestTestCall(call.callee)) {
-        return;
-      }
-
-      const secondArgument = call.arguments?.[1];
-      const thirdArgument = call.arguments?.[2];
-
-      if (
-        !secondArgument ||
-        !isObjectExpression(thirdArgument) ||
-        isObjectExpression(secondArgument)
-      ) {
-        return;
-      }
-
-      call.arguments.splice(1, 2, thirdArgument, secondArgument);
-      changed = true;
-    });
-
-    return changed ? root.toSource({ quote: "single" }) : fileInfo.source;
-  });
-}
-
-export { createVitestTestOptionsTransform, moveTestOptions };
+export { moveTestOptions };

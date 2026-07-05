@@ -2,6 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { moveTestOptions } from "./move-test-options.js";
 import { sourceReviewBlocker } from "./review-source-api-changes.js";
 import { updateBrowserUtilsImports } from "./update-browser-utils-imports.js";
 import { updateCustomEnvironment } from "./update-custom-environment.js";
@@ -16,6 +17,25 @@ afterEach(() => {
 });
 
 describe("source API codemods", () => {
+  it("moves Vitest options before the test handler and is idempotent", async () => {
+    const sourcePath = createSourceFile([
+      "import { test } from 'vitest';",
+      "",
+      "test('works', () => {}, { timeout: 1_000 });",
+      "test.concurrent('also works', () => {}, { retry: 2 });",
+      "",
+    ]);
+
+    const first = await moveTestOptions.transform?.(sourcePath);
+    const output = readFileSync(sourcePath, "utf8");
+    const second = await moveTestOptions.transform?.(sourcePath);
+
+    expect(first).toEqual({ status: "updated", filePath: sourcePath });
+    expect(output).toContain("test('works', { timeout: 1_000 }, () => {})");
+    expect(output).toContain("test.concurrent('also works', { retry: 2 }, () => {})");
+    expect(second).toEqual({ status: "unchanged", filePath: sourcePath });
+  });
+
   it("rewrites named @vitest/browser/utils imports through vitest/browser utils", async () => {
     const sourcePath = createSourceFile([
       "import { page } from 'vitest/browser';",
@@ -86,7 +106,7 @@ describe("source API codemods", () => {
     const output = readFileSync(sourcePath, "utf8");
 
     expect(result).toEqual({ status: "updated", filePath: sourcePath });
-    expect(output).toContain("viteEnvironment: 'client'");
+    expect(output).toMatch(/viteEnvironment:\s*['"]client['"]/);
     expect(output).not.toContain("transformMode");
     expect(sourceReviewBlocker(sourcePath)).toBe(false);
   });
