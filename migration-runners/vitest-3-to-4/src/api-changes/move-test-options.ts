@@ -1,4 +1,4 @@
-import { call, callArgs, capture, codemod } from "comorph";
+import { call, capture, codemod } from "comorph";
 import { transformer } from "migration-kit";
 import type { ApiChange } from "migration-kit";
 import { sourceFilePatterns } from "../patterns.js";
@@ -12,9 +12,7 @@ const moveTestOptions: ApiChange = {
     codemod("vitest-4-test-options-order", ({ files }) => {
       files
         .jsLike()
-        .find(
-          call`${capture.reference("testApi", { kind: "call-callee" })}(${capture.args("args")})`,
-        )
+        .find(call`${capture.callee("testApi")}(${capture.args("args")})`)
         .where(({ testApi, args }) => {
           const name = testApi.text();
           const handler = args.at(1);
@@ -44,9 +42,8 @@ const moveTestOptions: ApiChange = {
             return;
           }
 
-          const editor = callArgs(args);
-          editor.set(1, options);
-          editor.set(2, handler);
+          args.set(1, options);
+          args.set(2, handler);
         });
     }),
   ),

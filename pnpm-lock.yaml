@@ -15,8 +15,8 @@ importers:
         specifier: ^0.1
         version: 0.1.0
       comorph:
-        specifier: ^0.2
-        version: 0.2.0
+        specifier: ^0.2 || ^0.3
+        version: 0.3.0
       jscodeshift:
         specifier: ^17
         version: 17.3.0
@@ -58,11 +58,11 @@ importers:
   migration-runners/vitest-3-to-4:
     dependencies:
       comorph:
-        specifier: ^0.2.0
-        version: 0.2.0
+        specifier: ^0.3.0
+        version: 0.3.0
       migration-kit:
         specifier: file:../..
-        version: file:(ast-grep@0.1.0)(comorph@0.2.0)(jscodeshift@17.3.0)
+        version: file:(ast-grep@0.1.0)(comorph@0.3.0)(jscodeshift@17.3.0)
       semver:
         specifier: ^7.8.1
         version: 7.8.1
@@ -338,32 +338,32 @@ packages:
     resolution: {integrity: sha512-wKh+wTjmrUoUdkZg8KpJO5X+p9PWV+KE9mePseq9UYWkukgTKsGS47RRL2HstwVcvDQH+PenrPJWII8+MfiiyA==}
     engines: {node: '>= 20.12.0'}
 
-  '@comorph/ast@0.2.0':
-    resolution: {integrity: sha512-uxI8sIiZEWL7AXg86a38dimHgDG9AYT+YtfudxfG+jVWnXfXrVxjOa+NwYptwFefnj5ZWXU1Tf+k8kTD3CkBsg==}
+  '@comorph/ast@0.3.0':
+    resolution: {integrity: sha512-tSaU+7X2w4NXlMUDuxRPEk3JfX/EhBzQmS/1/USgxq0R0VsG71eTIY99h+iiOod3T7IvgzXDJMWEZY+ZFqZAug==}
 
-  '@comorph/core@0.2.0':
-    resolution: {integrity: sha512-XLBEw1RPkSKQ5C1F6QB71AwVejTXCGwW9HUlEvPIY345TXtk1dZk2AL1Pbo8+4SslvRZb64FMYe2/LhLqndVUQ==}
+  '@comorph/core@0.3.0':
+    resolution: {integrity: sha512-wv1tDO0u/woIbWASHvh9R8UxlfPNa6My585fcpDCSWRHXpKnk0IOpMUZbyptzGLaDo1i6Ng/aD4HqGFK4ZA+Bg==}
 
-  '@comorph/domain-js@0.2.0':
-    resolution: {integrity: sha512-750wsUW2Zs0vSNoba+k8X+hSsYTlxdAm9hgZDesLKGgeqOXjHnfCq4fC7d8v5KJHKyad5pw/77LK8ojkdlcAQQ==}
+  '@comorph/domain-js@0.3.0':
+    resolution: {integrity: sha512-U3541JwySyoMuxjdAvCQ66weMyJDFPdrtEI1085uVM4d4cLFKKwcCjqP9UxXhPaMo7ULTmwwKwN1gzBsUK59Yg==}
 
-  '@comorph/edit@0.2.0':
-    resolution: {integrity: sha512-6UnpI+m8Pr52rWzM7qjpJ7OYgVaGUROQCteTB0aC7g0tvpUhQIjjGkJbXaMu9cVVJgw2bUpVdJ9rWqW4hvADkQ==}
+  '@comorph/edit@0.3.0':
+    resolution: {integrity: sha512-kSJS2BHkyBdQx50gPJ4fXTudBPKe3JD+zO9cbwOV2BFeOTiO8sheiHTH3UbwcLtY43W2M85ufSltp3ArKajrBA==}
 
-  '@comorph/engine@0.2.0':
-    resolution: {integrity: sha512-5vcB02gywm+pD+ujM8Fyuw8U0tLqZuRrSDbUbT4I1IPoaawPUE6ircujEfZLmgafD4PdTP4NeNZuLJ6ECwwpgw==}
+  '@comorph/engine@0.3.0':
+    resolution: {integrity: sha512-5wuJAzZs8KogYTgzRW+i9grhGv7Lz0mjWobIX86oafbmDZCaZwtM5E53V4V3sl/mz8LHXL19SZ+HfcsARaUpww==}
 
-  '@comorph/parser-oxc@0.2.0':
-    resolution: {integrity: sha512-38d3Bt+cklKjSLaCM8pWivi+BB3dTewkNJZ6QoKDR+7bbo2CLnSmeWjlD9Lw/XXmwFE1RcOYEgWSZqj48kZQqg==}
+  '@comorph/parser-oxc@0.3.0':
+    resolution: {integrity: sha512-OSezbkg2J1PlxdjEGSgP7ZL/MGHu7iMLymlJmGbB20y6hbdh9ws9G4LPKA0wWXbQnB+rPGAS8yxhmEaScANwUw==}
 
-  '@comorph/patch@0.2.0':
-    resolution: {integrity: sha512-dLRxzODs75dZV93CcybNQ1DNZoOi8B8xLsLpQZXUBX0vFpxZHSMpSbnb8lY05cXTC8O/e5uePwpBfly6MxLwPQ==}
+  '@comorph/patch@0.3.0':
+    resolution: {integrity: sha512-S5yiqj1nqY6kp52I9Bww1u0eSovTNxzlNXvdCJXAsyohS/Hc/2+UtzHCFU0lC/5wG23uB5aecsg+tWP9X/FEfw==}
 
-  '@comorph/pattern@0.2.0':
-    resolution: {integrity: sha512-VHKFciql5F8hNVEw0gQP82ytVkRpO2F9NtUznXSQwp6JgoQnHe0N09bqnW1ryMbo17ksVdpldM0xOuNFQeC9tA==}
+  '@comorph/pattern@0.3.0':
+    resolution: {integrity: sha512-4XUcMs3GNo3O8N9nkUMw1Z5v/+gEiO+hilnjWbuExVwv0FsAkTnjlA+QhsM29F5GsqS9gLvZ9yX5IEYeCGnUyg==}
 
-  '@comorph/types@0.2.0':
-    resolution: {integrity: sha512-RHqxbdbLFAKAUDu03tMDsXfhe5ZeDP1zlEz/c1B5WGOLOz17+2eRNB+2GY9/LMeCYl4IhJXi53pAkPTeuUYCOg==}
+  '@comorph/types@0.3.0':
+    resolution: {integrity: sha512-ZXcJgc2lFBQok4+qOjHAqrgO5VMqgfUuLEct8izB9nqelXsHG0iMuhRKAU8Qo0oWdMCGpvdWbzHgcDmrHPdZHQ==}
 
   '@emnapi/core@1.10.0':
     resolution: {integrity: sha512-yq6OkJ4p82CAfPl0u9mQebQHKPJkY7WrIuk205cTYnYe+k2Z8YBh11FrbRG/H6ihirqcacOgl2BIO8oyMQLeXw==}
@@ -1574,8 +1574,8 @@ packages:
   commondir@1.0.1:
     resolution: {integrity: sha512-W9pAhw0ja1Edb5GVdIF1mjZw/ASI0AlShXM83UUGe2DVr5TdAPEA1OA8m/g8zWp9x6On7gqufY+FatDbC3MDQg==}
 
-  comorph@0.2.0:
-    resolution: {integrity: sha512-AfPmDYVpfOttdcsMj3JM5rUnRWBmXBUnU+USZMFSsb/0Qu3Wlc9eKSdlIhX6g70ESIxi0WzSQI5RKDdeCKpnRA==}
+  comorph@0.3.0:
+    resolution: {integrity: sha512-M+b0wVfXrdzpa1KYiPVawi4+viRZOPTr5wh7Z7IOf+JjvX+ittV7aypZm8uDfCjodLjgKg6fVfA+9MIWjVH/aQ==}
 
   concat-map@0.0.1:
     resolution: {integrity: sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg==}
@@ -2119,7 +2119,7 @@ packages:
     resolution: {directory: '', type: directory}
     peerDependencies:
       ast-grep: ^0.1
-      comorph: ^0.2
+      comorph: ^0.2 || ^0.3
       jscodeshift: ^17
 
   mimic-fn@1.2.0:
@@ -3147,50 +3147,50 @@ snapshots:
       fast-wrap-ansi: 0.2.2
       sisteransi: 1.0.5
 
-  '@comorph/ast@0.2.0':
+  '@comorph/ast@0.3.0':
     dependencies:
-      '@comorph/types': 0.2.0
+      '@comorph/types': 0.3.0
 
-  '@comorph/core@0.2.0':
+  '@comorph/core@0.3.0':
     dependencies:
-      '@comorph/types': 0.2.0
+      '@comorph/types': 0.3.0
 
-  '@comorph/domain-js@0.2.0':
+  '@comorph/domain-js@0.3.0':
     dependencies:
-      '@comorph/ast': 0.2.0
-      '@comorph/edit': 0.2.0
-      '@comorph/types': 0.2.0
+      '@comorph/ast': 0.3.0
+      '@comorph/edit': 0.3.0
+      '@comorph/types': 0.3.0
 
-  '@comorph/edit@0.2.0':
+  '@comorph/edit@0.3.0':
     dependencies:
-      '@comorph/types': 0.2.0
+      '@comorph/types': 0.3.0
 
-  '@comorph/engine@0.2.0':
+  '@comorph/engine@0.3.0':
     dependencies:
-      '@comorph/ast': 0.2.0
-      '@comorph/core': 0.2.0
-      '@comorph/edit': 0.2.0
-      '@comorph/patch': 0.2.0
-      '@comorph/types': 0.2.0
+      '@comorph/ast': 0.3.0
+      '@comorph/core': 0.3.0
+      '@comorph/edit': 0.3.0
+      '@comorph/patch': 0.3.0
+      '@comorph/types': 0.3.0
 
-  '@comorph/parser-oxc@0.2.0':
+  '@comorph/parser-oxc@0.3.0':
     dependencies:
-      '@comorph/ast': 0.2.0
-      '@comorph/engine': 0.2.0
-      '@comorph/types': 0.2.0
+      '@comorph/ast': 0.3.0
+      '@comorph/engine': 0.3.0
+      '@comorph/types': 0.3.0
       oxc-parser: 0.138.0
 
-  '@comorph/patch@0.2.0':
+  '@comorph/patch@0.3.0':
     dependencies:
-      '@comorph/ast': 0.2.0
-      '@comorph/edit': 0.2.0
-      '@comorph/types': 0.2.0
+      '@comorph/ast': 0.3.0
+      '@comorph/edit': 0.3.0
+      '@comorph/types': 0.3.0
 
-  '@comorph/pattern@0.2.0':
+  '@comorph/pattern@0.3.0':
     dependencies:
-      '@comorph/types': 0.2.0
+      '@comorph/types': 0.3.0
 
-  '@comorph/types@0.2.0': {}
+  '@comorph/types@0.3.0': {}
 
   '@emnapi/core@1.10.0':
     dependencies:
@@ -4031,14 +4031,14 @@ snapshots:
 
   commondir@1.0.1: {}
 
-  comorph@0.2.0:
+  comorph@0.3.0:
     dependencies:
-      '@comorph/core': 0.2.0
-      '@comorph/domain-js': 0.2.0
-      '@comorph/engine': 0.2.0
-      '@comorph/parser-oxc': 0.2.0
-      '@comorph/pattern': 0.2.0
-      '@comorph/types': 0.2.0
+      '@comorph/core': 0.3.0
+      '@comorph/domain-js': 0.3.0
+      '@comorph/engine': 0.3.0
+      '@comorph/parser-oxc': 0.3.0
+      '@comorph/pattern': 0.3.0
+      '@comorph/types': 0.3.0
 
   concat-map@0.0.1: {}
 
@@ -4557,11 +4557,11 @@ snapshots:
       braces: 3.0.3
       picomatch: 2.3.2
 
-  migration-kit@file:(ast-grep@0.1.0)(comorph@0.2.0)(jscodeshift@17.3.0):
+  migration-kit@file:(ast-grep@0.1.0)(comorph@0.3.0)(jscodeshift@17.3.0):
     dependencies:
       '@clack/prompts': 1.5.0
       ast-grep: 0.1.0
-      comorph: 0.2.0
+      comorph: 0.3.0
       jscodeshift: 17.3.0
       log-update: 8.0.0
       semver: 7.8.1
