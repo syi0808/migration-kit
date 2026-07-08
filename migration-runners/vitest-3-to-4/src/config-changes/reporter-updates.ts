@@ -1,107 +1,96 @@
+import { arrayElements, arrayValue, literal, object, objectValue, property } from "comorph";
+import type { NodeCapture, NodeInput } from "comorph";
 import { transformer } from "migration-kit";
-import type { ConfigChange, JscodeshiftCore, Transformer } from "migration-kit";
-import {
-  getObjectPropertyName,
-  isArrayExpression,
-  isStringLiteral,
-  isUnderObjectProperty,
-  type NodePath,
-} from "../utils/jscodeshift.js";
+import type { ConfigChange } from "migration-kit";
+import { vitestConfigCodemod } from "../utils/comorph.js";
 
 const reporterUpdatesChange: ConfigChange = {
   title: "Update Vitest 4 reporter config",
   description:
     "Rewrites the removed basic reporter to the equivalent default reporter with summary disabled.",
-  transform: createReporterUpdatesTransform(),
-};
+  transform: transformer.comorph(
+    vitestConfigCodemod("vitest-4-reporter-updates", (config) => {
+      const reporters = config.get("test.reporters");
 
-function createReporterUpdatesTransform(): Transformer {
-  return transformer.jscodeshift((fileInfo, api): string => {
-    const j = api.jscodeshift;
-    const root = j(fileInfo.source);
-    let changed = false;
-
-    root.find(j.ObjectProperty).forEach((path: NodePath): void => {
-      if (
-        !isUnderObjectProperty(path, "test") ||
-        getObjectPropertyName(path.node) !== "reporters"
-      ) {
+      if (reporters.kind !== "value") {
         return;
       }
 
-      const reporters = replaceBasicReporter(j, path.node.value);
+      const value = reporters.value();
 
-      if (reporters) {
-        path.node.value = reporters;
-        changed = true;
+      if (isBasicString(value)) {
+        config.set("test.reporters", arrayValue([createDefaultReporter()]), { overwrite: true });
+        return;
       }
-    });
 
-    return changed ? root.toSource({ quote: "single" }) : fileInfo.source;
-  });
+      if (value.kind() !== "ArrayExpression") {
+        return;
+      }
+
+      const elements = arrayElements(value);
+      let changed = false;
+
+      const nextReporters = elements.items.map((element) => {
+        const reporter = rewriteReporterElement(element);
+        changed ||= reporter !== element;
+        return reporter;
+      });
+
+      if (changed) {
+        elements.replaceAll(nextReporters);
+      }
+    }),
+  ),
+};
+
+function isBasicString(node: NodeCapture): boolean {
+  return /^['"]basic['"]$/.test(node.text().trim());
 }
 
-function replaceBasicReporter(j: JscodeshiftCore, value: any): any | null {
-  if (isStringLiteral(value) && value.value === "basic") {
-    return j.arrayExpression([createDefaultReporter(j)]);
+function createDefaultReporter() {
+  return arrayValue([literal("default"), objectValue({ summary: false })]);
+}
+
+function rewriteReporterElement(element: NodeCapture): NodeInput {
+  if (isBasicString(element)) {
+    return createDefaultReporter();
   }
 
-  if (!isArrayExpression(value)) {
-    return null;
-  }
-
-  let changed = false;
-
-  value.elements = value.elements.map((element: any): any => {
-    if (isStringLiteral(element) && element.value === "basic") {
-      changed = true;
-      return createDefaultReporter(j);
-    }
-
-    if (
-      isArrayExpression(element) &&
-      isStringLiteral(element.elements[0]) &&
-      element.elements[0].value === "basic"
-    ) {
-      element.elements[0].value = "default";
-      ensureReporterSummaryFalse(j, element);
-      changed = true;
-    }
-
+  if (element.kind() !== "ArrayExpression") {
     return element;
-  });
+  }
 
-  return changed ? value : null;
+  const reporter = arrayElements(element);
+  const name = reporter.get(0);
+
+  if (!name || !isBasicString(name)) {
+    return element;
+  }
+
+  return arrayValue([literal("default"), reporterOptionsWithSummaryFalse(reporter)]);
 }
 
-function createDefaultReporter(j: JscodeshiftCore): any {
-  return j.arrayExpression([
-    j.stringLiteral("default"),
-    j.objectExpression([j.objectProperty(j.identifier("summary"), j.booleanLiteral(false))]),
+function reporterOptionsWithSummaryFalse(reporter: ReturnType<typeof arrayElements>): NodeInput {
+  const options = reporter.get(1);
+
+  if (!options) {
+    return objectValue({ summary: false });
+  }
+
+  if (options.kind() !== "ObjectExpression") {
+    return objectValue({ summary: false });
+  }
+
+  const entries = object(options).entries();
+
+  if (entries.kind !== "value" || object(options).has("summary").kind === "yes") {
+    return options;
+  }
+
+  return objectValue([
+    property("summary", false),
+    ...entries.valueOrFail().map((entry) => property(entry.key, entry.value)),
   ]);
-}
-
-function ensureReporterSummaryFalse(j: JscodeshiftCore, reporter: any): void {
-  const options = reporter.elements[1];
-
-  if (!isObjectExpression(options)) {
-    reporter.elements[1] = j.objectExpression([
-      j.objectProperty(j.identifier("summary"), j.booleanLiteral(false)),
-    ]);
-    return;
-  }
-
-  const hasSummary = options.properties.some(
-    (property: any): boolean => getObjectPropertyName(property) === "summary",
-  );
-
-  if (!hasSummary) {
-    options.properties.unshift(j.objectProperty(j.identifier("summary"), j.booleanLiteral(false)));
-  }
-}
-
-function isObjectExpression(node: any): boolean {
-  return node?.type === "ObjectExpression";
 }
 
 export { reporterUpdatesChange };

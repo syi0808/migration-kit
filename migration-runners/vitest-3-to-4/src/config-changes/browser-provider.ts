@@ -1,80 +1,70 @@
 import { readMigrationFileSync, transformer } from "migration-kit";
-import type { BlockCheckResult, ConfigChange, JscodeshiftCore, Transformer } from "migration-kit";
+import { arrayValue, object, objectValue, property } from "comorph";
+import type { ObjectEntry } from "comorph";
+import type { BlockCheckResult, ConfigChange } from "migration-kit";
+import { vitestConfigCodemod } from "../utils/comorph.js";
 import {
-  findObjectProperty,
-  getObjectPropertyName,
-  isObjectExpression,
-  isStringLiteral,
-  isUnderPropertyChain,
-  parseSource,
-  removeObjectProperty,
-  type NodePath,
-} from "../utils/jscodeshift.js";
+  hasObjectPropertyPath,
+  hasObjectPropertyPathWhere,
+  isStringLiteralNode,
+} from "../utils/comorph-query.js";
 
 const browserProviderChange: ConfigChange = {
   title: "Update browser provider config",
   description:
     "Moves browser.name/providerOptions into browser.instances and flags provider strings that need provider factories.",
   policy: "blocking",
-  transform: createBrowserProviderTransform(),
-  shouldBlock: browserProviderReviewBlocker,
-};
-
-function createBrowserProviderTransform(): Transformer {
-  return transformer.jscodeshift((fileInfo, api): string => {
-    const j = api.jscodeshift;
-    const root = j(fileInfo.source);
-    let changed = false;
-
-    root.find(j.ObjectProperty).forEach((path: NodePath): void => {
-      if (getObjectPropertyName(path.node) !== "browser" || !isUnderPropertyChain(path, ["test"])) {
+  transform: transformer.comorph(
+    vitestConfigCodemod("vitest-4-browser-provider", (config) => {
+      if (config.has("test.browser.instances").kind === "yes") {
         return;
       }
 
-      changed = moveBrowserNameToInstances(j, path.node.value) || changed;
-    });
+      const name = config.get("test.browser.name");
 
-    return changed ? root.toSource({ quote: "single" }) : fileInfo.source;
-  });
-}
+      if (name.kind !== "value") {
+        return;
+      }
 
-function moveBrowserNameToInstances(j: JscodeshiftCore, browserObject: any): boolean {
-  if (!isObjectExpression(browserObject) || findObjectProperty(browserObject, "instances")) {
-    return false;
-  }
+      const providerOptions = config.get("test.browser.providerOptions");
+      let providerOptionEntries: readonly ObjectEntry[] = [];
 
-  const nameProperty = findObjectProperty(browserObject, "name");
+      if (providerOptions.kind === "value") {
+        if (providerOptions.value().kind() !== "ObjectExpression") {
+          return;
+        }
 
-  if (!nameProperty) {
-    return false;
-  }
+        const entries = object(providerOptions.value()).entries();
 
-  const instanceProperties = [j.objectProperty(j.identifier("browser"), nameProperty.value)];
-  const providerOptions = findObjectProperty(browserObject, "providerOptions");
+        if (
+          entries.kind !== "value" ||
+          entries.valueOrFail().some((entry) => entry.key === "browser")
+        ) {
+          return;
+        }
 
-  if (providerOptions && !isObjectExpression(providerOptions.value)) {
-    return false;
-  }
+        providerOptionEntries = entries.valueOrFail();
+      }
 
-  if (providerOptions) {
-    if (findObjectProperty(providerOptions.value, "browser")) {
-      return false;
-    }
+      const browserName = config.take("test.browser.name").valueOrFail();
 
-    instanceProperties.push(...providerOptions.value.properties);
-    removeObjectProperty(browserObject, providerOptions);
-  }
+      if (providerOptions.kind === "value") {
+        providerOptionEntries = config.takeEntries("test.browser.providerOptions").valueOrFail();
+      }
 
-  removeObjectProperty(browserObject, nameProperty);
-  browserObject.properties.push(
-    j.objectProperty(
-      j.identifier("instances"),
-      j.arrayExpression([j.objectExpression(instanceProperties)]),
-    ),
-  );
-
-  return true;
-}
+      config.set(
+        "test.browser.instances",
+        arrayValue([
+          objectValue([
+            property("browser", browserName),
+            ...providerOptionEntries.map((entry) => property(entry.key, entry.value)),
+          ]),
+        ]),
+      );
+    }),
+  ),
+  shouldBlock: browserProviderReviewBlocker,
+};
 
 function browserProviderReviewBlocker(filePath: string): BlockCheckResult {
   const source = readMigrationFileSync(filePath);
@@ -89,33 +79,18 @@ function browserProviderReviewBlocker(filePath: string): BlockCheckResult {
 }
 
 function hasBrowserProviderFindings(filePath: string, source: string): boolean {
-  const { j, root } = parseSource(filePath, source);
-  let found = false;
-
-  root.find(j.ObjectProperty).forEach((path: NodePath): void => {
-    if (getObjectPropertyName(path.node) !== "browser" || !isUnderPropertyChain(path, ["test"])) {
-      return;
-    }
-
-    if (!isObjectExpression(path.node.value)) {
-      return;
-    }
-
-    const provider = findObjectProperty(path.node.value, "provider");
-
-    if (provider && isStringLiteral(provider.value)) {
-      found = true;
-    }
-
-    if (
-      findObjectProperty(path.node.value, "name") ||
-      findObjectProperty(path.node.value, "providerOptions")
-    ) {
-      found = true;
-    }
-  });
-
-  return found;
+  return (
+    hasObjectPropertyPath(source, filePath, ["test", "browser", "provider"], isStringLiteralNode) ||
+    hasObjectPropertyPathWhere(
+      source,
+      filePath,
+      (path) =>
+        path.length === 3 &&
+        path[0] === "test" &&
+        path[1] === "browser" &&
+        (path[2] === "name" || path[2] === "providerOptions"),
+    )
+  );
 }
 
 export { browserProviderChange };

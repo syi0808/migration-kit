@@ -143,8 +143,8 @@ describe("source API codemods", () => {
     const output = readFileSync(sourcePath, "utf8");
 
     expect(result).toEqual({ status: "updated", filePath: sourcePath });
-    expect(output).toContain("import type { MockInstance } from 'vitest';");
-    expect(output).toContain("import type { TestSpecification } from 'vitest/node';");
+    expect(output).toMatch(typeImportPattern("MockInstance", "vitest"));
+    expect(output).toMatch(typeImportPattern("TestSpecification", "vitest/node"));
     expect(output).toContain("type LegacySpy = MockInstance;");
     expect(output).toContain("type LegacyWorkspaceSpec = TestSpecification;");
     expect(output).not.toMatch(/\bSpyInstance\b/);
@@ -164,7 +164,7 @@ describe("source API codemods", () => {
     const output = readFileSync(sourcePath, "utf8");
 
     expect(result).toEqual({ status: "updated", filePath: sourcePath });
-    expect(output).toContain("import type { MockInstance as LegacySpy } from 'vitest';");
+    expect(output).toMatch(typeImportPattern("MockInstance as LegacySpy", "vitest"));
     expect(output).toContain("type TestSpy = LegacySpy;");
     expect(output).not.toContain("SpyInstance");
     expect(sourceReviewBlocker(sourcePath)).toBe(false);
@@ -183,7 +183,8 @@ describe("source API codemods", () => {
     const output = readFileSync(sourcePath, "utf8");
 
     expect(result).toEqual({ status: "updated", filePath: sourcePath });
-    expect(output).toContain("import { describe, type MockInstance } from 'vitest';");
+    expect(output).toMatch(typeImportPattern("MockInstance", "vitest"));
+    expect(output).toMatch(/import\s+\{\s*describe\s*\}\s+from\s+['"]vitest['"]/);
     expect(output).toContain("type TestSpy = MockInstance;");
     expect(output).not.toMatch(/\bSpyInstance\b/);
     expect(sourceReviewBlocker(sourcePath)).toBe(false);
@@ -201,7 +202,7 @@ describe("source API codemods", () => {
     const output = readFileSync(sourcePath, "utf8");
 
     expect(result).toEqual({ status: "updated", filePath: sourcePath });
-    expect(output).toContain("import type { TestSpecification } from 'vitest/node';");
+    expect(output).toMatch(typeImportPattern("TestSpecification", "vitest/node"));
     expect(output).toContain("type LegacyWorkspaceSpec = TestSpecification;");
     expect(output).not.toMatch(/\bWorkspaceSpec\b/);
     expect(sourceReviewBlocker(sourcePath)).toBe(false);
@@ -217,4 +218,14 @@ function createSourceFile(lines: string[]): string {
   writeFileSync(sourcePath, lines.join("\n"));
 
   return sourcePath;
+}
+
+function typeImportPattern(specifier: string, source: string): RegExp {
+  return new RegExp(
+    `import\\s+(?:type\\s+)?\\{\\s*(?:type\\s+)?${escapeRegExp(specifier)}\\s*\\}\\s+from\\s+['"]${escapeRegExp(source)}['"]`,
+  );
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

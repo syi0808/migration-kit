@@ -3,12 +3,7 @@ import type { BlockCheckResult, ConfigChange } from "migration-kit";
 import type { ObjectEditor, ObjectEntry } from "comorph";
 import { object } from "comorph";
 import { vitestConfigCodemod } from "../utils/comorph.js";
-import {
-  getObjectPropertyName,
-  isUnderPropertyChain,
-  parseSource,
-  type NodePath,
-} from "../utils/jscodeshift.js";
+import { hasObjectPropertyPath, hasObjectPropertyPathWhere } from "../utils/comorph-query.js";
 
 const poolOptionGroups = new Set(["threads", "forks", "vmThreads", "vmForks"]);
 const removedPoolOptions = new Set(["minWorkers", "useAtomic", "useAtomics"]);
@@ -230,44 +225,26 @@ function addIf(reasons: string[], condition: boolean, reason: string): void {
 }
 
 function hasImmediateTestProperty(filePath: string, source: string, name: string): boolean {
-  const { j, root } = parseSource(filePath, source);
-  let found = false;
-
-  root.find(j.ObjectProperty).forEach((path: NodePath): void => {
-    if (getObjectPropertyName(path.node) === name && isUnderPropertyChain(path, ["test"])) {
-      found = true;
-    }
-  });
-
-  return found;
+  return hasObjectPropertyPath(source, filePath, ["test", name]);
 }
 
 function hasNestedRemovedPoolOption(filePath: string, source: string): boolean {
-  const { j, root } = parseSource(filePath, source);
-  let found = false;
+  return hasObjectPropertyPathWhere(source, filePath, (path) => {
+    const propertyName = path.at(-1);
+    const poolName = path.at(-2);
 
-  root.find(j.ObjectProperty).forEach((path: NodePath): void => {
-    const propertyName = getObjectPropertyName(path.node);
-
-    if (propertyName && removedPoolOptions.has(propertyName) && isUnderPoolOptionGroup(path)) {
-      found = true;
+    if (!propertyName || !poolName || !removedPoolOptions.has(propertyName)) {
+      return false;
     }
+
+    return (
+      (path.length === 4 &&
+        path[0] === "test" &&
+        path[1] === "poolOptions" &&
+        poolOptionGroups.has(poolName)) ||
+      (path.length === 3 && path[0] === "test" && poolOptionGroups.has(poolName))
+    );
   });
-
-  return found;
-}
-
-function isUnderPoolOptionGroup(path: NodePath): boolean {
-  for (const poolName of poolOptionGroups) {
-    if (
-      isUnderPropertyChain(path, [poolName, "poolOptions", "test"]) ||
-      isUnderPropertyChain(path, [poolName, "test"])
-    ) {
-      return true;
-    }
-  }
-
-  return false;
 }
 
 export { poolReworkChange };

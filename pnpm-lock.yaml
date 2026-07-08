@@ -58,11 +58,11 @@ importers:
   migration-runners/vitest-3-to-4:
     dependencies:
       comorph:
-        specifier: ^0.3.0
-        version: 0.3.0
+        specifier: ^0.3.1
+        version: 0.3.1
       migration-kit:
         specifier: file:../..
-        version: file:(ast-grep@0.1.0)(comorph@0.3.0)(jscodeshift@17.3.0)
+        version: file:(ast-grep@0.1.0)(comorph@0.3.1)(jscodeshift@17.3.0)
       semver:
         specifier: ^7.8.1
         version: 7.8.1
@@ -341,29 +341,56 @@ packages:
   '@comorph/ast@0.3.0':
     resolution: {integrity: sha512-tSaU+7X2w4NXlMUDuxRPEk3JfX/EhBzQmS/1/USgxq0R0VsG71eTIY99h+iiOod3T7IvgzXDJMWEZY+ZFqZAug==}
 
+  '@comorph/ast@0.3.1':
+    resolution: {integrity: sha512-0XbV2Dl62E7J7Yr8AQIOsweK1YQzCOhyuXx3hiNiD2gdGxTgEQT1Aa+ycRyNCgmkC+hsGMGa7U3B3IclqAi9/w==}
+
   '@comorph/core@0.3.0':
     resolution: {integrity: sha512-wv1tDO0u/woIbWASHvh9R8UxlfPNa6My585fcpDCSWRHXpKnk0IOpMUZbyptzGLaDo1i6Ng/aD4HqGFK4ZA+Bg==}
+
+  '@comorph/core@0.3.1':
+    resolution: {integrity: sha512-YFMOForeSgjALpo9JBtjT0H2KUpLA/iwhEd84VKlIpzOEtWJf21kGVxYz6RGPTxQeDRC8t27j+mF0A8dm8UqMg==}
 
   '@comorph/domain-js@0.3.0':
     resolution: {integrity: sha512-U3541JwySyoMuxjdAvCQ66weMyJDFPdrtEI1085uVM4d4cLFKKwcCjqP9UxXhPaMo7ULTmwwKwN1gzBsUK59Yg==}
 
+  '@comorph/domain-js@0.3.1':
+    resolution: {integrity: sha512-rG4xmBwh/+/4vPNYoWP4OchT9jnzdVQ/RbnsUKyOJnjNBNrBk7T5aIp9NgaCwiATVvmgBkgTL2Aw30FGcxfTtw==}
+
   '@comorph/edit@0.3.0':
     resolution: {integrity: sha512-kSJS2BHkyBdQx50gPJ4fXTudBPKe3JD+zO9cbwOV2BFeOTiO8sheiHTH3UbwcLtY43W2M85ufSltp3ArKajrBA==}
+
+  '@comorph/edit@0.3.1':
+    resolution: {integrity: sha512-/pYGLmGBV6gT9G+itpIRvTnBw+A+PKDN5CHybxgaIvlHMp72yP2+gSAM48lc4hOfNnc7WxPJACVpAw0eBq+OwQ==}
 
   '@comorph/engine@0.3.0':
     resolution: {integrity: sha512-5wuJAzZs8KogYTgzRW+i9grhGv7Lz0mjWobIX86oafbmDZCaZwtM5E53V4V3sl/mz8LHXL19SZ+HfcsARaUpww==}
 
+  '@comorph/engine@0.3.1':
+    resolution: {integrity: sha512-n14KnZeidsgssws2vvXb2xiK6XIwZ5YHZ1X6mRfNJSXg7WY3zhfBhzcA09OFTHxzzOrAFtpgpi3dmKACsq8wnQ==}
+
   '@comorph/parser-oxc@0.3.0':
     resolution: {integrity: sha512-OSezbkg2J1PlxdjEGSgP7ZL/MGHu7iMLymlJmGbB20y6hbdh9ws9G4LPKA0wWXbQnB+rPGAS8yxhmEaScANwUw==}
+
+  '@comorph/parser-oxc@0.3.1':
+    resolution: {integrity: sha512-aqlPurNoDh7KwHGuXAVaOjzTWU1VkgV/+y+gW+ARuvyrHYxtRcHDxG61Rdm4d3yVFbz3lnvVArDJ4obcxcyq3A==}
 
   '@comorph/patch@0.3.0':
     resolution: {integrity: sha512-S5yiqj1nqY6kp52I9Bww1u0eSovTNxzlNXvdCJXAsyohS/Hc/2+UtzHCFU0lC/5wG23uB5aecsg+tWP9X/FEfw==}
 
+  '@comorph/patch@0.3.1':
+    resolution: {integrity: sha512-80HcrTnW14NZ/L23WWcobUMFTh8HdMMi6WOY5yMoiLJ194MBzEoOmVYmcp0R9kOUjdB7G6axr1OYFi6qJoqXbA==}
+
   '@comorph/pattern@0.3.0':
     resolution: {integrity: sha512-4XUcMs3GNo3O8N9nkUMw1Z5v/+gEiO+hilnjWbuExVwv0FsAkTnjlA+QhsM29F5GsqS9gLvZ9yX5IEYeCGnUyg==}
 
+  '@comorph/pattern@0.3.1':
+    resolution: {integrity: sha512-f7kuj4J6/WB6JI3a5ZJKpgwYAC+Y3OSsPzXtQmIaCLaMWPrgokYc12jvTEWNXAGXhKpgPijNTULqx2o4rRoojw==}
+
   '@comorph/types@0.3.0':
     resolution: {integrity: sha512-ZXcJgc2lFBQok4+qOjHAqrgO5VMqgfUuLEct8izB9nqelXsHG0iMuhRKAU8Qo0oWdMCGpvdWbzHgcDmrHPdZHQ==}
+
+  '@comorph/types@0.3.1':
+    resolution: {integrity: sha512-PYS4LQD2R8oxq6m4FeBZ76OXdvjWlE+wpY8nQSE/9qSH0hxvFhVs2LG1wRAR2vYOqNHZLguz3r9y3c6apBvFcQ==}
 
   '@emnapi/core@1.10.0':
     resolution: {integrity: sha512-yq6OkJ4p82CAfPl0u9mQebQHKPJkY7WrIuk205cTYnYe+k2Z8YBh11FrbRG/H6ihirqcacOgl2BIO8oyMQLeXw==}
@@ -1576,6 +1603,9 @@ packages:
 
   comorph@0.3.0:
     resolution: {integrity: sha512-M+b0wVfXrdzpa1KYiPVawi4+viRZOPTr5wh7Z7IOf+JjvX+ittV7aypZm8uDfCjodLjgKg6fVfA+9MIWjVH/aQ==}
+
+  comorph@0.3.1:
+    resolution: {integrity: sha512-QkuVNCbbTbrpEziN1RU+rlNTYaiUUc4CIz3DHrbJ9XKflfUdM+7dDlYIlFNBi7TXA2X02JYMvU35IQzErXSUWQ==}
 
   concat-map@0.0.1:
     resolution: {integrity: sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg==}
@@ -3151,9 +3181,17 @@ snapshots:
     dependencies:
       '@comorph/types': 0.3.0
 
+  '@comorph/ast@0.3.1':
+    dependencies:
+      '@comorph/types': 0.3.1
+
   '@comorph/core@0.3.0':
     dependencies:
       '@comorph/types': 0.3.0
+
+  '@comorph/core@0.3.1':
+    dependencies:
+      '@comorph/types': 0.3.1
 
   '@comorph/domain-js@0.3.0':
     dependencies:
@@ -3161,9 +3199,19 @@ snapshots:
       '@comorph/edit': 0.3.0
       '@comorph/types': 0.3.0
 
+  '@comorph/domain-js@0.3.1':
+    dependencies:
+      '@comorph/ast': 0.3.1
+      '@comorph/edit': 0.3.1
+      '@comorph/types': 0.3.1
+
   '@comorph/edit@0.3.0':
     dependencies:
       '@comorph/types': 0.3.0
+
+  '@comorph/edit@0.3.1':
+    dependencies:
+      '@comorph/types': 0.3.1
 
   '@comorph/engine@0.3.0':
     dependencies:
@@ -3173,11 +3221,26 @@ snapshots:
       '@comorph/patch': 0.3.0
       '@comorph/types': 0.3.0
 
+  '@comorph/engine@0.3.1':
+    dependencies:
+      '@comorph/ast': 0.3.1
+      '@comorph/core': 0.3.1
+      '@comorph/edit': 0.3.1
+      '@comorph/patch': 0.3.1
+      '@comorph/types': 0.3.1
+
   '@comorph/parser-oxc@0.3.0':
     dependencies:
       '@comorph/ast': 0.3.0
       '@comorph/engine': 0.3.0
       '@comorph/types': 0.3.0
+      oxc-parser: 0.138.0
+
+  '@comorph/parser-oxc@0.3.1':
+    dependencies:
+      '@comorph/ast': 0.3.1
+      '@comorph/engine': 0.3.1
+      '@comorph/types': 0.3.1
       oxc-parser: 0.138.0
 
   '@comorph/patch@0.3.0':
@@ -3186,11 +3249,23 @@ snapshots:
       '@comorph/edit': 0.3.0
       '@comorph/types': 0.3.0
 
+  '@comorph/patch@0.3.1':
+    dependencies:
+      '@comorph/ast': 0.3.1
+      '@comorph/edit': 0.3.1
+      '@comorph/types': 0.3.1
+
   '@comorph/pattern@0.3.0':
     dependencies:
       '@comorph/types': 0.3.0
 
+  '@comorph/pattern@0.3.1':
+    dependencies:
+      '@comorph/types': 0.3.1
+
   '@comorph/types@0.3.0': {}
+
+  '@comorph/types@0.3.1': {}
 
   '@emnapi/core@1.10.0':
     dependencies:
@@ -3337,6 +3412,13 @@ snapshots:
       '@emnapi/core': 1.10.0
       '@emnapi/runtime': 1.10.0
       '@tybys/wasm-util': 0.10.2
+    optional: true
+
+  '@napi-rs/wasm-runtime@1.1.6(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)':
+    dependencies:
+      '@emnapi/core': 1.10.0
+      '@emnapi/runtime': 1.10.0
+      '@tybys/wasm-util': 0.10.3
     optional: true
 
   '@napi-rs/wasm-runtime@1.1.6(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)':
@@ -3615,7 +3697,7 @@ snapshots:
     dependencies:
       '@emnapi/core': 1.10.0
       '@emnapi/runtime': 1.10.0
-      '@napi-rs/wasm-runtime': 1.1.4(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)
+      '@napi-rs/wasm-runtime': 1.1.6(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)
     optional: true
 
   '@rolldown/binding-wasm32-wasi@1.0.3':
@@ -4039,6 +4121,15 @@ snapshots:
       '@comorph/parser-oxc': 0.3.0
       '@comorph/pattern': 0.3.0
       '@comorph/types': 0.3.0
+
+  comorph@0.3.1:
+    dependencies:
+      '@comorph/core': 0.3.1
+      '@comorph/domain-js': 0.3.1
+      '@comorph/engine': 0.3.1
+      '@comorph/parser-oxc': 0.3.1
+      '@comorph/pattern': 0.3.1
+      '@comorph/types': 0.3.1
 
   concat-map@0.0.1: {}
 
@@ -4557,11 +4648,11 @@ snapshots:
       braces: 3.0.3
       picomatch: 2.3.2
 
-  migration-kit@file:(ast-grep@0.1.0)(comorph@0.3.0)(jscodeshift@17.3.0):
+  migration-kit@file:(ast-grep@0.1.0)(comorph@0.3.1)(jscodeshift@17.3.0):
     dependencies:
       '@clack/prompts': 1.5.0
       ast-grep: 0.1.0
-      comorph: 0.3.0
+      comorph: 0.3.1
       jscodeshift: 17.3.0
       log-update: 8.0.0
       semver: 7.8.1
