@@ -25,10 +25,12 @@ describe("coverageOptionsChange", () => {
         "export default {",
         "  test: {",
         "    coverage: {",
+        "      // Options below were valid in Vitest 3.",
         "      all: true,",
         "      extensions: ['ts'],",
         "      ignoreEmptyLines: true,",
         "      experimentalAstAwareRemapping: true,",
+        "      // Keep the explicit include pattern.",
         "      include: ['src/**/*.ts'],",
         "    },",
         "  },",
@@ -45,6 +47,7 @@ describe("coverageOptionsChange", () => {
     expect(output).not.toContain("extensions:");
     expect(output).not.toContain("ignoreEmptyLines:");
     expect(output).not.toContain("experimentalAstAwareRemapping:");
+    expect(output).toContain("// Keep the explicit include pattern.");
     expect(output).toContain("include:");
   });
 

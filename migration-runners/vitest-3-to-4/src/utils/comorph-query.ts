@@ -51,42 +51,8 @@ function hasObjectPropertyPathWhere(
 }
 
 function getObjectPropertyPath(property: ObjectPropertyCapture): readonly string[] | null {
-  const path: string[] = [];
-  let current: NodeCapture | undefined = property;
-
-  while (current) {
-    if (current.kind() === "Property") {
-      const key = getStaticPropertyKey(current.raw());
-
-      if (!key) {
-        return null;
-      }
-
-      path.unshift(key);
-    }
-
-    current = current.parent();
-  }
-
-  return path;
-}
-
-function getStaticPropertyKey(node: any): string | null {
-  if (!node || node.type !== "Property" || node.computed) {
-    return null;
-  }
-
-  const key = node.key;
-
-  if (key?.type === "Identifier") {
-    return key.name ?? null;
-  }
-
-  if ((key?.type === "Literal" || key?.type === "StringLiteral") && typeof key.value === "string") {
-    return key.value;
-  }
-
-  return null;
+  const path = property.staticPath();
+  return path.kind === "value" && path.value !== undefined ? path.value.split(".") : null;
 }
 
 function isStringLiteralNode(node: NodeCapture): boolean {

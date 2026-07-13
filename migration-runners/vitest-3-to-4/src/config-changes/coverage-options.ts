@@ -1,13 +1,6 @@
 import { readMigrationFileSync, transformer } from "migration-kit";
-import type { BlockCheckResult, ConfigChange, Transformer } from "migration-kit";
-import {
-  findObjectProperty,
-  getObjectPropertyName,
-  isObjectExpression,
-  isUnderPropertyChain,
-  removeObjectProperty,
-  type NodePath,
-} from "../utils/jscodeshift.js";
+import type { BlockCheckResult, ConfigChange } from "migration-kit";
+import { vitestConfigCodemod } from "../utils/comorph.js";
 
 const removedCoverageOptions = new Set([
   "all",
@@ -21,43 +14,15 @@ const coverageOptionsChange: ConfigChange = {
   description:
     "Removes coverage.all, coverage.extensions, coverage.ignoreEmptyLines, and coverage.experimentalAstAwareRemapping. Flags coverage configs that still need an explicit include pattern.",
   policy: "blocking",
-  transform: createCoverageOptionsTransform(),
+  transform: transformer.comorph(
+    vitestConfigCodemod("vitest-4-coverage-options", (config) => {
+      for (const option of removedCoverageOptions) {
+        config.remove(`test.coverage.${option}`);
+      }
+    }),
+  ),
   shouldBlock: coverageOptionsReviewBlocker,
 };
-
-function createCoverageOptionsTransform(): Transformer {
-  return transformer.jscodeshift((fileInfo, api): string => {
-    const j = api.jscodeshift;
-    const root = j(fileInfo.source);
-    let changed = false;
-
-    root.find(j.ObjectProperty).forEach((path: NodePath): void => {
-      if (
-        getObjectPropertyName(path.node) !== "coverage" ||
-        !isUnderPropertyChain(path, ["test"])
-      ) {
-        return;
-      }
-
-      const coverage = path.node.value;
-
-      if (!isObjectExpression(coverage)) {
-        return;
-      }
-
-      for (const option of removedCoverageOptions) {
-        const property = findObjectProperty(coverage, option);
-
-        if (property) {
-          removeObjectProperty(coverage, property);
-          changed = true;
-        }
-      }
-    });
-
-    return changed ? root.toSource({ quote: "single" }) : fileInfo.source;
-  });
-}
 
 function coverageOptionsReviewBlocker(filePath: string): BlockCheckResult {
   const source = readMigrationFileSync(filePath);
