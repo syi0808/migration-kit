@@ -8,9 +8,9 @@
 - **Runtime checks** - Verify Node.js, Bun, or Deno availability and semver ranges through commands and common project version files.
 - **Dependency requirements** - Check declared package ranges in `package.json` dependencies, dev dependencies, optional dependencies, and peer dependencies.
 - **Package version updates** - Detect npm, pnpm, Yarn, or Bun and update configured package ranges before transforms run.
-- **Config change handling** - Run a transform against the first matching config file and keep rechecking blocking findings after files change.
-- **API change scanning** - Find files with `tinyglobby`, run transforms, and summarize updated, unchanged, failed, and needs-review files.
-- **Transformer helpers** - Wrap `jscodeshift` and `ast-grep` transforms behind the shared `Transformer` result contract.
+- **Config change handling** - Run a transform against the first matching config file, recheck manual-fix blockers after files change, copy remaining fixes while watching, and prompt for manual confirmations.
+- **API change scanning** - Find files with `tinyglobby`, show progress for large file batches, run transforms, and summarize updated, unchanged, failed, and needs-review files.
+- **Transformer helpers** - Wrap Comorph, `jscodeshift`, and `ast-grep` transforms behind the shared `Transformer` result contract.
 
 ## Getting Started
 
@@ -25,7 +25,7 @@ pnpm add migration-kit
 If you use the built-in transformer helpers, install their peer dependencies too:
 
 ```bash
-pnpm add ast-grep jscodeshift
+pnpm add ast-grep comorph jscodeshift
 ```
 
 ## Usage
@@ -48,7 +48,7 @@ const migrationRunner = createMigrationRunner({
     {
       title: "Review removed config option",
       description: "legacyMode was removed in 2.x.",
-      policy: "advisory",
+      policy: "blocking",
       shouldBlock: (filePath) => {
         const source = readFileSync(filePath, "utf8");
 
@@ -76,8 +76,10 @@ The runner executes work in this order:
 2. Run environment checks. Failed environment checks are reported without stopping the run.
 3. Check required dependencies from `package.json`. Failed dependency checks stop the migration.
 4. Detect the package manager, update configured package ranges from the migration `from` range to the `to` range, and run the package manager install command.
-5. Find the first existing config file from `configPath`, run config transforms, and recheck blocking findings after project files change.
-6. Scan API change file globs, run transforms, summarize results, and recheck blocking findings after project files change.
+5. Find the first existing config file from `configPath`, run config transforms, recheck manual-fix blockers after project files change, and prompt for manual confirmations.
+6. Scan API change file globs, run transforms, summarize results, recheck manual-fix blockers after project files change, and prompt for manual confirmations.
+
+When a blocking manual-fix check is waiting with `Watching for project changes`, press `c` to copy the full current fix list to the system clipboard. Large API transform or blocker scans render a live progress line while files are being processed.
 
 ## API
 
@@ -105,7 +107,12 @@ The options object supports:
 - `configChanges` for config transforms and blockers
 - `apiChanges` for glob-based source transforms and blockers
 
-Block checks default to `policy: "blocking"`. A blocking check waits for project file changes and rechecks until the finding is resolved. Use `policy: "advisory"` when the runner should report the finding and continue.
+Block checks default to `policy: "blocking"`. A block check can return one finding or an array of findings:
+
+- `{ reason }` or `{ kind: "manual-fix", reason }` means a user edit is required. Blocking checks keep watching project files and recheck until the finding is resolved.
+- `{ kind: "manual-confirmation", reason, prompt? }` means the runner found something programmatically, but only needs the user to confirm that the implication was reviewed. Blocking checks ask with a clack confirm prompt for each confirmation finding before watching for any remaining manual fixes.
+
+Use blocking manual fixes for removed or moved options, deleted APIs, and behavior changes that can break the migrated project until a codemod or user edit resolves the finding. Use manual confirmations for checks the runner can detect but cannot prove semantically, such as changed mock cleanup expectations. Use `policy: "advisory"` only when the runner should report an informational or deprecated-but-still-working finding and continue.
 
 Each `packageVersionUpdates` entry defaults to the runner-level `from` and `to` values. Set entry-level `from` or `to` when the package range should be more specific than the displayed migration versions. Wildcard targets such as `4.x`, `4`, or `4.1.x` are resolved to the latest matching published package version before `package.json` is written.
 
@@ -122,6 +129,21 @@ runtime.deno({ version: ">=2.0.0" });
 Runtime checks can read project requirements from `package.json` fields such as `engines`, `volta`, `devEngines.runtime`, and runtime-specific `packageManager` pins. They also check version files such as `.nvmrc`, `.node-version`, `.bun-version`, `.deno-version`, and `.tool-versions` before falling back to the runtime command.
 
 ### `transformer`
+
+`transformer.comorph()` runs a Comorph codemod against one migration file. Failed and review diagnostics map to the shared `failed` and `needs-review` results. Files are written only when the codemod completes without either diagnostic.
+
+```ts
+import { call, capture, codemod, expr } from "comorph";
+
+const replaceLegacyCall = codemod("replace-legacy-call", ({ files }) => {
+  files
+    .jsLike()
+    .find(expr`${capture.node("call", call`legacyApi()`)}`)
+    .edit(({ call }) => call.replaceWith(expr`nextApi()`));
+});
+
+transformer.comorph(replaceLegacyCall);
+```
 
 `transformer.jscodeshift()` wraps a jscodeshift transform function and writes changed source back to disk.
 
@@ -144,6 +166,8 @@ transformer.astGrep({
   replace: "newValue()",
 });
 ```
+
+During `createMigrationRunner().run()`, built-in transformers use a runner-scoped file cache. Read-only blockers can use `readMigrationFileSync(filePath)` and `parseJscodeshiftSourceForScan(filePath, source)` to participate in that cache without changing the `transform(filePath)` or `shouldBlock(filePath)` API shape.
 
 ## License
 

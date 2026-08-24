@@ -3,17 +3,32 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { get as httpGet } from "node:http";
 import { get } from "node:https";
 import { join } from "node:path";
-import type { createLogUpdate } from "log-update";
 import semver from "semver";
-import type { PackageVersionUpdate } from "../types.js";
+import type { ResolvedPackageVersionUpdate } from "../types.js";
 import { logStyle, stripAnsi } from "../utils/log-style.js";
+import type { MigrationRenderer } from "../utils/renderer.js";
+import type {
+  DependencyField,
+  DependencyMatch,
+  InstallOutputHandler,
+  InstallOutputPreview,
+  InstallOutputPreviewState,
+  PackageJson,
+  PackageJsonSource,
+  PackageManager,
+  PackageManagerDetection,
+  PackageVersionTaskOptions,
+  PackageVersionUpdateResult,
+  ResolvePackageVersion,
+  RunPackageManagerInstall,
+} from "./package-version.types.js";
 
 const dependencyFields = [
   "dependencies",
   "devDependencies",
   "optionalDependencies",
   "peerDependencies",
-] as const;
+] satisfies readonly DependencyField[];
 
 const packageManagerLockfiles = [
   { fileName: "pnpm-lock.yaml", packageManager: "pnpm" },
@@ -22,62 +37,13 @@ const packageManagerLockfiles = [
   { fileName: "npm-shrinkwrap.json", packageManager: "npm" },
   { fileName: "bun.lock", packageManager: "bun" },
   { fileName: "bun.lockb", packageManager: "bun" },
-] as const;
-
-type DependencyField = (typeof dependencyFields)[number];
-type PackageManager = "npm" | "pnpm" | "yarn" | "bun";
-
-type PackageJson = {
-  packageManager?: unknown;
-} & {
-  [field in DependencyField]?: Record<string, unknown>;
-};
-
-type PackageVersionTaskOptions = {
-  cwd?: string;
-  from: string;
-  to: string;
-  runInstall?: RunPackageManagerInstall;
-  resolvePackageVersion?: ResolvePackageVersion;
-};
-
-type InstallOutputHandler = (chunk: string) => void;
-type RunPackageManagerInstall = (
-  packageManager: PackageManager,
-  cwd: string,
-  onOutput?: InstallOutputHandler,
-) => Promise<void>;
-type ResolvePackageVersion = (dependency: string, versionRange: string) => Promise<string | null>;
-
-type PackageManagerDetection = {
-  packageManager: PackageManager;
-  source: string;
-};
-
-type PackageVersionUpdateResult =
-  | {
-      status: "updated";
-      dependency: string;
-      field: DependencyField;
-      currentVersion: string;
-      nextVersion: string;
-    }
-  | {
-      status: "unchanged";
-      dependency: string;
-      reason: string;
-    }
-  | {
-      status: "failed";
-      dependency: string;
-      reason: string;
-    };
+] satisfies ReadonlyArray<{ fileName: string; packageManager: PackageManager }>;
 
 async function packageVersionTask(
-  logUpdate: ReturnType<typeof createLogUpdate>,
-  updates: PackageVersionUpdate[],
-  options: PackageVersionTaskOptions,
-) {
+  renderer: MigrationRenderer,
+  updates: ResolvedPackageVersionUpdate[],
+  options: PackageVersionTaskOptions = {},
+): Promise<void> {
   const cwd = options.cwd ?? process.cwd();
   const packageJsonPath = join(cwd, "package.json");
   const packageJsonSource = readPackageJsonSource(packageJsonPath);
@@ -90,40 +56,33 @@ async function packageVersionTask(
   let hasFailure = false;
   let hasUpdate = false;
 
-  logUpdate.persist(
-    logStyle.info(
-      `Detected ${packageManager.packageManager} package manager (${packageManager.source})`,
-    ),
+  renderer.info(
+    `Detected ${packageManager.packageManager} package manager (${packageManager.source})`,
   );
 
   for (const update of updates) {
     const result = await updatePackageVersion(
       packageJsonSource.packageJson,
       update,
-      {
-        from: update.from ?? options.from,
-        to: update.to ?? options.to,
-      },
+      { from: update.from, to: update.to },
       options.resolvePackageVersion ?? resolveLatestPackageVersion,
     );
 
     if (result.status === "updated") {
       hasUpdate = true;
-      logUpdate.persist(
-        logStyle.success(
-          `${result.dependency} ${result.currentVersion} → ${result.nextVersion} (${result.field})`,
-        ),
+      renderer.success(
+        `${result.dependency} ${result.currentVersion} → ${result.nextVersion} (${result.field})`,
       );
       continue;
     }
 
     if (result.status === "failed") {
       hasFailure = true;
-      logUpdate.persist(logStyle.error(`${result.dependency} ${result.reason}`));
+      renderer.error(`${result.dependency} ${result.reason}`);
       continue;
     }
 
-    logUpdate.persist(logStyle.skipped(`${result.dependency} ${result.reason}`));
+    renderer.skipped(`${result.dependency} ${result.reason}`);
   }
 
   if (hasFailure) {
@@ -131,7 +90,7 @@ async function packageVersionTask(
   }
 
   if (!hasUpdate) {
-    logUpdate.persist(logStyle.success("Package versions already up to date"));
+    renderer.success("Package versions already up to date");
     return;
   }
 
@@ -140,7 +99,7 @@ async function packageVersionTask(
     stringifyPackageJson(packageJsonSource.packageJson, packageJsonSource.source),
   );
 
-  const installOutputPreview = createInstallOutputPreview(logUpdate, packageManager.packageManager);
+  const installOutputPreview = createInstallOutputPreview(renderer, packageManager.packageManager);
 
   installOutputPreview.render();
 
@@ -154,9 +113,7 @@ async function packageVersionTask(
     installOutputPreview.clear();
   }
 
-  logUpdate.persist(
-    logStyle.success(`Dependencies installed with ${packageManager.packageManager}`),
-  );
+  renderer.success(`Dependencies installed with ${packageManager.packageManager}`);
 }
 
 function detectPackageManager(
@@ -183,7 +140,7 @@ function detectPackageManager(
 
 async function updatePackageVersion(
   packageJson: PackageJson,
-  update: PackageVersionUpdate,
+  update: ResolvedPackageVersionUpdate,
   versionRange: { from: string; to: string },
   resolvePackageVersion: ResolvePackageVersion,
 ): Promise<PackageVersionUpdateResult> {
@@ -365,45 +322,46 @@ async function readPackageMetadata(dependency: string): Promise<Record<string, u
   const registryUrl = new URL(registry.endsWith("/") ? registry : `${registry}/`);
   const metadataUrl = new URL(encodeURIComponent(dependency), registryUrl);
 
-  return await new Promise<Record<string, unknown>>((resolvePromise, reject) => {
-    const request = (metadataUrl.protocol === "http:" ? httpGet : get)(metadataUrl, (response) => {
-      if (response.statusCode === 404) {
-        response.resume();
-        resolvePromise({});
-        return;
-      }
-
-      if (!response.statusCode || response.statusCode < 200 || response.statusCode >= 300) {
-        response.resume();
-        reject(new Error(`Failed to fetch ${dependency} metadata: HTTP ${response.statusCode}`));
-        return;
-      }
-
-      let source = "";
-
-      response.setEncoding("utf8");
-      response.on("data", (chunk) => {
-        source += chunk;
-      });
-      response.on("end", () => {
-        try {
-          resolvePromise(JSON.parse(source) as Record<string, unknown>);
-        } catch (error) {
-          reject(error);
+  return await new Promise<Record<string, unknown>>((resolvePromise, reject): void => {
+    const request = (metadataUrl.protocol === "http:" ? httpGet : get)(
+      metadataUrl,
+      (response): void => {
+        if (response.statusCode === 404) {
+          response.resume();
+          resolvePromise({});
+          return;
         }
-      });
-    });
+
+        if (!response.statusCode || response.statusCode < 200 || response.statusCode >= 300) {
+          response.resume();
+          reject(new Error(`Failed to fetch ${dependency} metadata: HTTP ${response.statusCode}`));
+          return;
+        }
+
+        let source = "";
+
+        response.setEncoding("utf8");
+        response.on("data", (chunk): void => {
+          source += chunk;
+        });
+        response.on("end", (): void => {
+          try {
+            resolvePromise(JSON.parse(source) as Record<string, unknown>);
+          } catch (error) {
+            reject(error);
+          }
+        });
+      },
+    );
 
     request.on("error", reject);
-    request.setTimeout(30_000, () => {
+    request.setTimeout(30_000, (): void => {
       request.destroy(new Error(`Timed out fetching ${dependency} metadata`));
     });
   });
 }
 
-function readPackageJsonSource(
-  packageJsonPath: string,
-): { packageJson: PackageJson; source: string } | null {
+function readPackageJsonSource(packageJsonPath: string): PackageJsonSource | null {
   try {
     const source = readFileSync(packageJsonPath, "utf8");
     const packageJson = JSON.parse(source) as PackageJson;
@@ -424,10 +382,7 @@ function readPackageManager(value: unknown): PackageManager | null {
   return match ? (match[1] as PackageManager) : null;
 }
 
-function findDependency(
-  packageJson: PackageJson,
-  dependency: string,
-): { field: DependencyField; dependencies: Record<string, unknown> } | null {
+function findDependency(packageJson: PackageJson, dependency: string): DependencyMatch | null {
   for (const field of dependencyFields) {
     const dependencies = readRecord(packageJson[field]);
 
@@ -487,37 +442,40 @@ function detectJsonIndent(source: string): string | number {
 }
 
 function createInstallOutputPreview(
-  logUpdate: ReturnType<typeof createLogUpdate>,
+  renderer: MigrationRenderer,
   packageManager: PackageManager,
-) {
-  const state = {
-    lines: [] as string[],
+): InstallOutputPreview {
+  const state: InstallOutputPreviewState = {
+    lines: [],
     currentLine: "",
   };
 
-  const render = () => {
+  const render = (): void => {
     const outputLines = readInstallOutputPreviewLines(state);
     const message = [
       logStyle.info(`Installing dependencies with ${packageManager}...`),
       ...outputLines.map((line) => logStyle.detail(line, 2)),
     ].join("\n");
 
-    logUpdate(message);
+    renderer.live(message);
   };
 
   return {
-    append(chunk: string) {
+    append(chunk: string): void {
       appendInstallOutputChunk(state, chunk);
       render();
     },
-    clear() {
-      logUpdate.clear();
+    clear(): void {
+      renderer.clear();
     },
     render,
   };
 }
 
-function appendInstallOutputChunk(state: { lines: string[]; currentLine: string }, chunk: string) {
+/**
+ * Maintains a rolling preview of package-manager output without persisting noisy install logs.
+ */
+function appendInstallOutputChunk(state: InstallOutputPreviewState, chunk: string): void {
   for (const character of chunk) {
     if (character === "\n" || character === "\r") {
       pushInstallOutputLine(state, state.currentLine);
@@ -529,7 +487,7 @@ function appendInstallOutputChunk(state: { lines: string[]; currentLine: string 
   }
 }
 
-function pushInstallOutputLine(state: { lines: string[]; currentLine: string }, line: string) {
+function pushInstallOutputLine(state: InstallOutputPreviewState, line: string): void {
   const normalizedLine = normalizeInstallOutputLine(line);
 
   if (!normalizedLine) {
@@ -543,14 +501,14 @@ function pushInstallOutputLine(state: { lines: string[]; currentLine: string }, 
   }
 }
 
-function readInstallOutputPreviewLines(state: { lines: string[]; currentLine: string }) {
+function readInstallOutputPreviewLines(state: InstallOutputPreviewState): string[] {
   const currentLine = normalizeInstallOutputLine(state.currentLine);
   const lines = currentLine ? [...state.lines, currentLine] : state.lines;
 
   return lines.slice(-4);
 }
 
-function normalizeInstallOutputLine(line: string) {
+function normalizeInstallOutputLine(line: string): string | null {
   const normalizedLine = stripAnsi(line).trimEnd();
 
   return normalizedLine.trim() ? normalizedLine : null;
@@ -560,8 +518,8 @@ async function runPackageManagerInstall(
   packageManager: PackageManager,
   cwd: string,
   onOutput?: InstallOutputHandler,
-) {
-  await new Promise<void>((resolvePromise, reject) => {
+): Promise<void> {
+  await new Promise<void>((resolvePromise, reject): void => {
     const child = spawn(packageManager, ["install"], {
       cwd,
       stdio: ["ignore", "pipe", "pipe"],
@@ -574,11 +532,11 @@ async function runPackageManagerInstall(
       child.stderr?.on("data", onOutput);
     }
 
-    child.on("error", (error) => {
+    child.on("error", (error): void => {
       reject(new Error(`Failed to run ${packageManager} install: ${error.message}`));
     });
 
-    child.on("close", (exitCode) => {
+    child.on("close", (exitCode): void => {
       if (exitCode === 0) {
         resolvePromise();
         return;

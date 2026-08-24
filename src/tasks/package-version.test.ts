@@ -1,9 +1,9 @@
-import type { createLogUpdate } from "log-update";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { stripAnsi } from "../utils/log-style.js";
+import { MigrationRenderer, type LogUpdate } from "../utils/renderer.js";
 import { detectPackageManager, packageVersionTask } from "./package-version.js";
 import type {
   PackageManager,
@@ -34,13 +34,11 @@ describe("packageVersionTask", () => {
     await packageVersionTask(
       createTestLogUpdate(messages),
       [
-        { dependency: "vitest", to: "^4.0.0" },
-        { dependency: "@vitest/ui", to: "^4.0.0" },
+        { dependency: "vitest", from: "3.x", to: "^4.0.0" },
+        { dependency: "@vitest/ui", from: "3.x", to: "^4.0.0" },
       ],
       {
         cwd,
-        from: "3.x",
-        to: "4.x",
         runInstall: recordInstall(installs),
       },
     );
@@ -73,13 +71,11 @@ describe("packageVersionTask", () => {
     await packageVersionTask(
       createTestLogUpdate(messages),
       [
-        { dependency: "vitest", to: "^4.0.0" },
-        { dependency: "@vitest/ui", to: "^4.0.0" },
+        { dependency: "vitest", from: "3.x", to: "^4.0.0" },
+        { dependency: "@vitest/ui", from: "3.x", to: "^4.0.0" },
       ],
       {
         cwd,
-        from: "3.x",
-        to: "4.x",
         runInstall: recordInstall(installs),
       },
     );
@@ -108,13 +104,11 @@ describe("packageVersionTask", () => {
     await packageVersionTask(
       createTestLogUpdate(messages),
       [
-        { dependency: "vitest", to: "4.x" },
-        { dependency: "@vitest/ui", to: "4.x" },
+        { dependency: "vitest", from: "3.x", to: "4.x" },
+        { dependency: "@vitest/ui", from: "3.x", to: "4.x" },
       ],
       {
         cwd,
-        from: "3.x",
-        to: "4.x",
         resolvePackageVersion: recordPackageVersionResolution(packageVersionResolutions, {
           "vitest@4.x": "4.1.7",
           "@vitest/ui@4.x": "4.1.7",
@@ -152,13 +146,15 @@ describe("packageVersionTask", () => {
       },
     });
 
-    await packageVersionTask(createTestLogUpdate(messages), [{ dependency: "vitest" }], {
-      cwd,
-      from: "3.x",
-      to: "4.x",
-      resolvePackageVersion: async () => "4.1.7",
-      runInstall: recordInstall(installs),
-    });
+    await packageVersionTask(
+      createTestLogUpdate(messages),
+      [{ dependency: "vitest", from: "3.x", to: "4.x" }],
+      {
+        cwd,
+        resolvePackageVersion: async () => "4.1.7",
+        runInstall: recordInstall(installs),
+      },
+    );
 
     const packageJson = JSON.parse(readFileSync(join(cwd, "package.json"), "utf8"));
 
@@ -183,11 +179,9 @@ describe("packageVersionTask", () => {
 
     await packageVersionTask(
       createTestLogUpdate(messages, updates),
-      [{ dependency: "vitest", to: "^4.0.0" }],
+      [{ dependency: "vitest", from: "3.x", to: "^4.0.0" }],
       {
         cwd,
-        from: "3.x",
-        to: "4.x",
         runInstall: async (_packageManager, _cwd, onOutput) => {
           onOutput?.("line 1\nline 2\n");
           onOutput?.("line 3\nline 4\nline 5\npartial");
@@ -220,13 +214,15 @@ describe("packageVersionTask", () => {
     });
 
     await expect(
-      packageVersionTask(createTestLogUpdate(messages), [{ dependency: "vitest", to: "4.x" }], {
-        cwd,
-        from: "3.x",
-        to: "4.x",
-        resolvePackageVersion: async () => null,
-        runInstall: recordInstall(installs),
-      }),
+      packageVersionTask(
+        createTestLogUpdate(messages),
+        [{ dependency: "vitest", from: "3.x", to: "4.x" }],
+        {
+          cwd,
+          resolvePackageVersion: async () => null,
+          runInstall: recordInstall(installs),
+        },
+      ),
     ).rejects.toThrow("Package version updates failed.");
 
     const packageJson = JSON.parse(readFileSync(join(cwd, "package.json"), "utf8"));
@@ -250,12 +246,14 @@ describe("packageVersionTask", () => {
     });
 
     await expect(
-      packageVersionTask(createTestLogUpdate(messages), [{ dependency: "vitest", to: "^4.0.0" }], {
-        cwd,
-        from: "3.x",
-        to: "4.x",
-        runInstall: recordInstall(installs),
-      }),
+      packageVersionTask(
+        createTestLogUpdate(messages),
+        [{ dependency: "vitest", from: "3.x", to: "^4.0.0" }],
+        {
+          cwd,
+          runInstall: recordInstall(installs),
+        },
+      ),
     ).rejects.toThrow("Package version updates failed.");
 
     const packageJson = JSON.parse(readFileSync(join(cwd, "package.json"), "utf8"));
@@ -321,11 +319,8 @@ function recordPackageVersionResolution(
   };
 }
 
-function createTestLogUpdate(
-  messages: string[],
-  updates: string[] = [],
-): ReturnType<typeof createLogUpdate> {
-  return Object.assign(
+function createTestLogUpdate(messages: string[], updates: string[] = []): MigrationRenderer {
+  const logUpdate = Object.assign(
     (text = "") => {
       updates.push(stripAnsi(text));
     },
@@ -336,5 +331,7 @@ function createTestLogUpdate(
         messages.push(stripAnsi(text.join(" ")));
       },
     },
-  );
+  ) as LogUpdate;
+
+  return new MigrationRenderer(logUpdate);
 }

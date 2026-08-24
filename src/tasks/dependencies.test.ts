@@ -1,9 +1,9 @@
-import type { createLogUpdate } from "log-update";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { stripAnsi } from "../utils/log-style.js";
+import { MigrationRenderer, type LogUpdate } from "../utils/renderer.js";
 import { dependenciesTask } from "./dependencies.js";
 
 const originalCwd = process.cwd();
@@ -96,12 +96,14 @@ function createProject(packageJson: Record<string, unknown>): string {
   return directory;
 }
 
-function createTestLogUpdate(messages: string[]): ReturnType<typeof createLogUpdate> {
-  return Object.assign(() => {}, {
+function createTestLogUpdate(messages: string[]): MigrationRenderer {
+  const logUpdate = Object.assign(() => {}, {
     clear: () => {},
     done: () => {},
     persist: (...text: string[]) => {
       messages.push(stripAnsi(text.join(" ")));
     },
-  });
+  }) as LogUpdate;
+
+  return new MigrationRenderer(logUpdate);
 }

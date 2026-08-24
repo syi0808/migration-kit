@@ -1,16 +1,23 @@
 import { readdirSync, statSync, watch, type Dirent, type FSWatcher } from "node:fs";
 import { join } from "node:path";
+import type { Cleanup, KeyInputStream, WaitForCwdChangeOptions } from "./watch.types.js";
 
 const ignoredDirectories = new Set([".git", "node_modules"]);
 
-async function waitForCwdChange(cwd = process.cwd()): Promise<void> {
-  return new Promise((resolve) => {
+async function waitForCwdChange(
+  cwdOrOptions: string | WaitForCwdChangeOptions = process.cwd(),
+): Promise<void> {
+  const options = typeof cwdOrOptions === "string" ? { cwd: cwdOrOptions } : cwdOrOptions;
+  const cwd = options.cwd ?? process.cwd();
+
+  return new Promise((resolve): void => {
     let settled = false;
     let debounce: ReturnType<typeof setTimeout> | undefined;
     let watcher: FSWatcher | undefined;
     let interval: ReturnType<typeof setInterval> | undefined;
+    const cleanupKeyPress = listenForKeyPress(options.input ?? process.stdin, options.onKeyPress);
 
-    const done = () => {
+    const done = (): void => {
       if (settled) {
         return;
       }
@@ -26,10 +33,11 @@ async function waitForCwdChange(cwd = process.cwd()): Promise<void> {
         clearInterval(interval);
       }
 
+      cleanupKeyPress();
       resolve();
     };
 
-    const scheduleDone = () => {
+    const scheduleDone = (): void => {
       if (debounce) {
         clearTimeout(debounce);
       }
@@ -37,14 +45,14 @@ async function waitForCwdChange(cwd = process.cwd()): Promise<void> {
       debounce = setTimeout(done, 50);
     };
 
-    const startPolling = () => {
+    const startPolling = (): void => {
       if (settled || interval) {
         return;
       }
 
       let previousSnapshot = snapshotDirectory(cwd);
 
-      interval = setInterval(() => {
+      interval = setInterval((): void => {
         const nextSnapshot = snapshotDirectory(cwd);
 
         if (nextSnapshot !== previousSnapshot) {
@@ -58,7 +66,7 @@ async function waitForCwdChange(cwd = process.cwd()): Promise<void> {
 
     try {
       watcher = watch(cwd, { recursive: true }, scheduleDone);
-      watcher.on("error", () => {
+      watcher.on("error", (): void => {
         watcher?.close();
         watcher = undefined;
         startPolling();
@@ -69,6 +77,42 @@ async function waitForCwdChange(cwd = process.cwd()): Promise<void> {
   });
 }
 
+function listenForKeyPress(input: KeyInputStream, onKeyPress?: (key: string) => void): Cleanup {
+  if (!onKeyPress || !input.isTTY || typeof input.setRawMode !== "function") {
+    return (): void => {};
+  }
+
+  const wasRaw = Boolean(input.isRaw);
+  const onData = (chunk: Buffer | string): void => {
+    for (const key of chunk.toString("utf8")) {
+      if (key === "\u0003") {
+        input.setRawMode?.(false);
+        process.kill(process.pid, "SIGINT");
+        return;
+      }
+
+      onKeyPress(key);
+    }
+  };
+
+  try {
+    input.setRawMode(true);
+  } catch {
+    return (): void => {};
+  }
+
+  input.resume();
+  input.on("data", onData);
+
+  return (): void => {
+    input.off("data", onData);
+
+    if (!wasRaw) {
+      input.setRawMode?.(false);
+    }
+  };
+}
+
 function snapshotDirectory(directory: string): string {
   const entries: string[] = [];
 
@@ -77,7 +121,7 @@ function snapshotDirectory(directory: string): string {
   return entries.sort().join("\n");
 }
 
-function walkDirectory(directory: string, entries: string[]) {
+function walkDirectory(directory: string, entries: string[]): void {
   let directoryEntries: Dirent<string>[];
 
   try {
@@ -113,3 +157,4 @@ function walkDirectory(directory: string, entries: string[]) {
 }
 
 export { waitForCwdChange };
+export type { KeyInputStream, WaitForCwdChangeOptions };

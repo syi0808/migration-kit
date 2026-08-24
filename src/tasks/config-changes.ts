@@ -1,26 +1,34 @@
-import type { createLogUpdate } from "log-update";
-import type { ConfigChange, TransformResult, Transformer } from "../types.js";
-import { logStyle } from "../utils/log-style.js";
-import { waitForCwdChange } from "../utils/watch.js";
+import type { ResolvedConfigChange, TransformResult } from "../types.js";
+import { formatPlainPath } from "../utils/path-format.js";
+import type { MigrationRenderer } from "../utils/renderer.js";
+import { runBlockCheck, type NormalizedBlockFinding } from "./block-check.js";
+import {
+  runBlockingSession,
+  type BlockingConfirmation,
+  type BlockingItem,
+  type BlockingSnapshot,
+} from "./blocking-session.js";
+import type { ManualConfirmationFinding } from "./config-changes.types.js";
+import { runTransform } from "./transform.js";
 
 async function configChangesTask(
-  logUpdate: ReturnType<typeof createLogUpdate>,
-  checks: ConfigChange[],
+  renderer: MigrationRenderer,
+  checks: ResolvedConfigChange[],
   configPath: string,
-) {
+): Promise<void> {
   let hasFailure = false;
 
   for (const check of checks) {
-    logUpdate.persist(logStyle.info(check.title));
+    renderer.info(check.title);
 
     if (check.description) {
-      logUpdate.persist(logStyle.detail(check.description));
+      renderer.detail(check.description);
     }
 
     if (check.transform) {
       const result = await runTransform(check.transform, configPath);
 
-      logTransformResult(logUpdate, result);
+      logTransformResult(renderer, result);
 
       if (result.status === "failed") {
         hasFailure = true;
@@ -28,7 +36,7 @@ async function configChangesTask(
     }
 
     if (check.shouldBlock) {
-      hasFailure = (await waitForConfigBlockCheck(logUpdate, check, configPath)) || hasFailure;
+      hasFailure = (await waitForConfigBlockCheck(renderer, check, configPath)) || hasFailure;
     }
   }
 
@@ -38,99 +46,116 @@ async function configChangesTask(
 }
 
 async function waitForConfigBlockCheck(
-  logUpdate: ReturnType<typeof createLogUpdate>,
-  check: ConfigChange,
+  renderer: MigrationRenderer,
+  check: ResolvedConfigChange,
   configPath: string,
-) {
+): Promise<boolean> {
   if (!check.shouldBlock) {
     return false;
   }
 
-  const policy = check.policy ?? "blocking";
-
-  while (true) {
-    const result = runBlockCheck(check.shouldBlock, configPath);
-
-    if (result.status === "failed") {
-      logUpdate.persist(logStyle.error("Block check failed", 2));
-      logUpdate.persist(logStyle.detail(result.reason, 3));
-      return true;
-    }
-
-    if (result.status === "passed") {
-      logUpdate.persist(
-        logStyle.success(policy === "blocking" ? "Not blocked" : "No advisories", 2),
-      );
-      return false;
-    }
-
-    const blocked = policy === "blocking";
-
-    logUpdate.persist(blocked ? logStyle.error("Blocked", 2) : logStyle.warning("Advisory", 2));
-    logUpdate.persist(logStyle.detail(result.reason, 3));
-
-    if (!blocked) {
-      return false;
-    }
-
-    logUpdate.persist(logStyle.info("Waiting for changes under cwd...", 3));
-    await waitForCwdChange();
-    logUpdate.persist(logStyle.info("Rechecking after file change", 2));
-  }
+  return runBlockingSession({
+    renderer,
+    policy: check.policy,
+    collectSnapshot: () => collectBlockSummary(check, configPath),
+  });
 }
 
-type BlockCheckResult =
-  | { status: "passed" }
-  | { status: "blocked"; reason: string }
-  | { status: "failed"; reason: string };
+function collectBlockSummary(check: ResolvedConfigChange, configPath: string): BlockingSnapshot {
+  const snapshot: BlockingSnapshot = {
+    manualFixes: [],
+    confirmations: [],
+    failures: [],
+  };
 
-async function runTransform(transform: Transformer, filePath: string): Promise<TransformResult> {
-  try {
-    return await transform(filePath);
-  } catch (error) {
-    return { status: "failed", filePath, reason: formatError(error) };
+  if (!check.shouldBlock) {
+    return snapshot;
   }
+
+  const result = runBlockCheck(check.shouldBlock, configPath);
+
+  if (result.status === "failed") {
+    snapshot.failures.push({
+      key: `failed:${configPath}\0${result.reason}`,
+      detail: result.reason,
+    });
+    return snapshot;
+  }
+
+  if (result.status !== "blocked") {
+    return snapshot;
+  }
+
+  for (const finding of result.findings) {
+    if (isManualConfirmationFinding(finding)) {
+      snapshot.confirmations.push(createManualConfirmation(check.title, configPath, finding));
+      continue;
+    }
+
+    snapshot.manualFixes.push(createManualFix(finding.reason));
+  }
+
+  return snapshot;
 }
 
-function runBlockCheck(
-  shouldBlock: NonNullable<ConfigChange["shouldBlock"]>,
-  filePath: string,
-): BlockCheckResult {
-  try {
-    const result = shouldBlock(filePath);
-
-    return result ? { status: "blocked", reason: result.reason } : { status: "passed" };
-  } catch (error) {
-    return { status: "failed", reason: formatError(error) };
-  }
+function isManualConfirmationFinding(
+  finding: NormalizedBlockFinding,
+): finding is ManualConfirmationFinding {
+  return finding.kind === "manual-confirmation";
 }
 
-function logTransformResult(
-  logUpdate: ReturnType<typeof createLogUpdate>,
-  result: TransformResult,
-) {
+function createManualConfirmationPrompt(
+  title: string,
+  configPath: string,
+  confirmation: ManualConfirmationFinding,
+): string {
+  const filePath = formatPlainPath(configPath);
+
+  if (confirmation.prompt) {
+    return `${filePath}: ${confirmation.prompt}`;
+  }
+
+  return `${filePath}: Confirm you manually verified "${title}" before continuing.`;
+}
+
+function createManualFix(reason: string): BlockingItem {
+  return {
+    key: `fix:${reason}`,
+    detail: reason,
+  };
+}
+
+function createManualConfirmation(
+  title: string,
+  configPath: string,
+  confirmation: ManualConfirmationFinding,
+): BlockingConfirmation {
+  return {
+    key: `${confirmation.reason}\0${confirmation.prompt ?? ""}`,
+    detail: confirmation.reason,
+    prompt: createManualConfirmationPrompt(title, configPath, confirmation),
+  };
+}
+
+function logTransformResult(renderer: MigrationRenderer, result: TransformResult): void {
   if (result.status === "updated") {
-    logUpdate.persist(logStyle.success("Updated", 2));
+    renderer.success("Updated", 2);
     return;
   }
 
   if (result.status === "unchanged") {
-    logUpdate.persist(logStyle.success("Unchanged", 2));
+    renderer.success("Unchanged", 2);
     return;
   }
 
   if (result.status === "needs-review") {
-    logUpdate.persist(logStyle.warning("Needs review", 2));
-    logUpdate.persist(logStyle.detail(result.reason, 3));
+    renderer.warning("Needs review", 2);
+    renderer.detail(result.reason, 3);
     return;
   }
 
-  logUpdate.persist(logStyle.error("Failed", 2));
-  logUpdate.persist(logStyle.detail(result.reason, 3));
-}
-
-function formatError(error: unknown) {
-  return error instanceof Error ? error.message : String(error);
+  renderer.error("Failed", 2);
+  renderer.detail(result.reason, 3);
 }
 
 export { configChangesTask };

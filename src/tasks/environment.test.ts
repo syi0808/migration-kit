@@ -1,7 +1,7 @@
-import type { createLogUpdate } from "log-update";
 import { describe, expect, it } from "vitest";
 import type { EnvironmentRequirementCheck } from "../types.js";
 import { stripAnsi } from "../utils/log-style.js";
+import { MigrationRenderer, type LogUpdate } from "../utils/renderer.js";
 import { environmentTask } from "./environment.js";
 
 describe("environmentTask", () => {
@@ -30,6 +30,24 @@ describe("environmentTask", () => {
     expect(messages).toEqual(["  ✗ node >=20 required, current 18.19.0"]);
   });
 
+  it("adds evidence to failed structured results", async () => {
+    const messages: string[] = [];
+    const logUpdate = createTestLogUpdate(messages);
+    const checks = [
+      createCheck({
+        available: false,
+        evidence: ["package.json#engines: >=18.0.0", "node --version: 18.19.0"],
+        message: "node >=20 required",
+      }),
+    ];
+
+    await environmentTask(logUpdate, checks);
+
+    expect(messages).toEqual([
+      "  ✗ node >=20 required (package.json#engines: >=18.0.0; node --version: 18.19.0)",
+    ]);
+  });
+
   it("continues after a check throws", async () => {
     const messages: string[] = [];
     const logUpdate = createTestLogUpdate(messages);
@@ -53,12 +71,14 @@ function createCheck(
   return Object.assign(() => result, metadata);
 }
 
-function createTestLogUpdate(messages: string[]): ReturnType<typeof createLogUpdate> {
-  return Object.assign(() => {}, {
+function createTestLogUpdate(messages: string[]): MigrationRenderer {
+  const logUpdate = Object.assign(() => {}, {
     clear: () => {},
     done: () => {},
     persist: (...text: string[]) => {
       messages.push(stripAnsi(text.join(" ")));
     },
-  });
+  }) as LogUpdate;
+
+  return new MigrationRenderer(logUpdate);
 }

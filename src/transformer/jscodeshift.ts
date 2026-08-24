@@ -1,57 +1,30 @@
-import { readFile, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { extname } from "node:path";
-import type { Transformer } from "../types.js";
+import type { Transformer, TransformResult } from "../types.js";
+import {
+  getMigrationArtifact,
+  readMigrationFile,
+  writeMigrationFile,
+} from "../migration-runtime.js";
+import type {
+  JscodeshiftApi,
+  JscodeshiftCore,
+  JscodeshiftOptions,
+  JscodeshiftParseOptions,
+  JscodeshiftParseResult,
+  JscodeshiftParser,
+  JscodeshiftTransform,
+} from "./jscodeshift.types.js";
 
 const require = createRequire(import.meta.url);
-
-export type JscodeshiftParser =
-  | "babel"
-  | "babylon"
-  | "flow"
-  | "ts"
-  | "tsx"
-  | {
-      parse(source: string): unknown;
-    };
-
-export interface JscodeshiftFileInfo {
-  path: string;
-  source: string;
-}
-
-export type JscodeshiftCore = ((source: string, options?: unknown) => any) & {
-  withParser(parser: JscodeshiftParser): JscodeshiftCore;
-  [key: string]: any;
-};
-
-export interface JscodeshiftApi {
-  j: JscodeshiftCore;
-  jscodeshift: JscodeshiftCore;
-  stats(name: string, quantity?: number): void;
-  report(message: string): void;
-}
-
-export interface JscodeshiftOptions {
-  parser?: JscodeshiftParser;
-  transformOptions?: Record<string, unknown>;
-  stats?: (name: string, quantity: number, filePath: string) => void;
-  report?: (message: string, filePath: string) => void;
-}
-
-export type JscodeshiftTransform = (
-  fileInfo: JscodeshiftFileInfo,
-  api: JscodeshiftApi,
-  options: Record<string, unknown>,
-) => Promise<string | null | undefined | void> | string | null | undefined | void;
 
 function jscodeshift(
   transform: JscodeshiftTransform,
   options: JscodeshiftOptions = {},
 ): Transformer {
-  return async (filePath) => {
+  return async (filePath): Promise<TransformResult> => {
     try {
-      const source = await readFile(filePath, "utf8");
+      const source = await readMigrationFile(filePath);
       const api = createJscodeshiftApi(filePath, options);
       const output = await transform(
         { path: filePath, source },
@@ -63,7 +36,7 @@ function jscodeshift(
         return { status: "unchanged", filePath };
       }
 
-      await writeFile(filePath, output);
+      await writeMigrationFile(filePath, output);
 
       return { status: "updated", filePath };
     } catch (error) {
@@ -72,16 +45,29 @@ function jscodeshift(
   };
 }
 
+function parseJscodeshiftSourceForScan(
+  filePath: string,
+  source: string,
+  options: JscodeshiftParseOptions = {},
+): JscodeshiftParseResult {
+  const parser = options.parser ?? inferParser(filePath);
+  const j = loadJscodeshift().withParser(parser);
+  const cacheKey = `jscodeshift:${getParserCacheKey(parser)}`;
+  const root = getMigrationArtifact(filePath, cacheKey, source, () => j(source));
+
+  return { j, root };
+}
+
 function createJscodeshiftApi(filePath: string, options: JscodeshiftOptions): JscodeshiftApi {
   const jscodeshift = loadJscodeshift().withParser(options.parser ?? inferParser(filePath));
 
   return {
     j: jscodeshift,
     jscodeshift,
-    stats: (name, quantity = 1) => {
+    stats: (name, quantity = 1): void => {
       options.stats?.(name, quantity, filePath);
     },
-    report: (message) => {
+    report: (message): void => {
       options.report?.(message, filePath);
     },
   };
@@ -107,8 +93,39 @@ function loadJscodeshift(): JscodeshiftCore {
   return "default" in module ? module.default : module;
 }
 
+const parserObjectIds = new WeakMap<object, number>();
+let nextParserObjectId = 1;
+
+function getParserCacheKey(parser: JscodeshiftParser): string {
+  if (typeof parser === "string") {
+    return parser;
+  }
+
+  const cached = parserObjectIds.get(parser);
+
+  if (cached) {
+    return `custom:${cached}`;
+  }
+
+  const id = nextParserObjectId;
+  nextParserObjectId += 1;
+  parserObjectIds.set(parser, id);
+
+  return `custom:${id}`;
+}
+
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-export { jscodeshift };
+export { jscodeshift, parseJscodeshiftSourceForScan };
+export type {
+  JscodeshiftApi,
+  JscodeshiftCore,
+  JscodeshiftFileInfo,
+  JscodeshiftOptions,
+  JscodeshiftParseOptions,
+  JscodeshiftParseResult,
+  JscodeshiftParser,
+  JscodeshiftTransform,
+} from "./jscodeshift.types.js";
