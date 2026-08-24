@@ -4,7 +4,7 @@ import { formatError } from "../utils/error.js";
 import { logStyle, stripAnsi } from "../utils/log-style.js";
 import { requestManualConfirmation } from "../utils/manual-confirmation.js";
 import { pluralize } from "../utils/strings.js";
-import { waitForCwdChange, type KeyInputStream } from "../utils/watch.js";
+import { waitForCwdChange } from "../utils/watch.js";
 import type {
   BlockingConfirmation,
   BlockingItem,

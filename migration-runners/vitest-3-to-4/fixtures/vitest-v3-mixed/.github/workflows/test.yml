@@ -12,4 +12,3 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: VITEST_MAX_THREADS=2 VITE_NODE_DEPS_MODULE_DIRECTORIES=./test pnpm test
-
